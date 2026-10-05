@@ -1,5 +1,6 @@
 // Humanoid models for bots (and the player when spectated), with simple animation.
 import * as THREE from '../vendor/three.module.min.js';
+import { buildWeaponModel } from './viewmodel.js';
 
 const COLORS = {
   T: { shirt: 0xc8a062, pants: 0x5b4b36, skin: 0xd9a77a, head: 0x3b2f27, boots: 0x2a2320, vest: 0x8a7046 },
@@ -44,18 +45,16 @@ export function createHumanoid(team, name) {
   };
   const lArm = mkArm(-0.3), rArm = mkArm(0.3);
   body.add(lArm, rArm);
-  // weapon held in front
+  // weapon held in front (actual model swapped in by animateHumanoid)
   const gun = new THREE.Group();
-  const barrel = box(0.06, 0.08, 0.62, mats.gun); barrel.position.set(0, 0, -0.1); gun.add(barrel);
-  const mag = box(0.05, 0.18, 0.08, mats.gun); mag.position.set(0, -0.12, -0.05); gun.add(mag);
-  gun.position.set(0.12, 1.28, -0.3);
+  gun.position.set(0.12, 1.3, -0.32);
   body.add(gun);
   // name tag
   const tag = makeTag(name, team);
   tag.position.y = 2.05;
   g.add(tag);
 
-  g.userData = { body, lLeg, rLeg, lArm, rArm, head, gun, torso, mats, tag, phase: Math.random() * 6, dead: false, deadT: 0 };
+  g.userData = { body, lLeg, rLeg, lArm, rArm, head, gun, torso, mats, tag, phase: Math.random() * 6, dead: false, deadT: 0, gunId: null, team, flash: false };
   return g;
 }
 
@@ -73,18 +72,37 @@ function makeTag(name, team) {
 }
 
 // Pose the model for an entity each frame.
-export function animateHumanoid(e, dt) {
+export function animateHumanoid(e, dt, now = 0) {
   const m = e.model; if (!m) return;
   const u = m.userData;
   m.position.set(e.pos.x, e.pos.y, e.pos.z);
+  // hit flash: brief red tint on the whole body
+  const flashing = e.hitFlashUntil > now;
+  if (flashing !== u.flash) {
+    u.flash = flashing;
+    for (const k of Object.keys(u.mats)) u.mats[k].emissive.setHex(flashing ? 0x5a0000 : 0x000000);
+  }
+  // show the weapon the bot actually carries
+  const wid = e.current ? e.current.def.id : null;
+  if (wid !== u.gunId) {
+    u.gunId = wid;
+    while (u.gun.children.length) u.gun.remove(u.gun.children[0]);
+    if (e.current) {
+      const wm = buildWeaponModel(e.current.def, u.team, false);
+      wm.scale.setScalar(1.15);
+      wm.traverse(o => { if (o.isMesh) o.castShadow = true; });
+      u.gun.add(wm);
+    }
+  }
   if (!e.alive) {
-    // fall over
+    // fall over, then fade in deathmatch to avoid clutter
     u.deadT += dt;
     const k = Math.min(1, u.deadT / 0.4);
     u.body.rotation.x = -Math.PI / 2 * k;
     u.body.position.y = 0.18 * k;
     u.body.rotation.y = e.yaw;
     u.tag.visible = false;
+    if (e.hideCorpseAfter && u.deadT > e.hideCorpseAfter) m.visible = false;
     return;
   }
   u.body.rotation.y = e.yaw;
@@ -98,7 +116,7 @@ export function animateHumanoid(e, dt) {
   u.rArm.rotation.set(aim, 0, 0); u.lArm.rotation.set(aim + 0.1, 0, 0);
   u.lArm.position.x = -0.22; u.rArm.position.x = 0.28;
   u.gun.rotation.x = e.pitch;
-  u.gun.visible = !!e.showGun;
+  u.gun.visible = !!e.showGun && !!e.current && e.current.def.cat !== 'melee' || (e.current && e.current.def.cat === 'melee');
   const crouch = e.crouch ? 0.68 : 1;
   u.body.scale.y += (crouch - u.body.scale.y) * Math.min(1, dt * 12);
   u.body.rotation.x = 0;

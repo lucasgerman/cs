@@ -19,7 +19,7 @@ const MAT = {
 const box = (w, h, d, m, x = 0, y = 0, z = 0) => { const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); mesh.position.set(x, y, z); return mesh; };
 const cyl = (r, h, m, x = 0, y = 0, z = 0, rotX = Math.PI / 2) => { const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 14), m); mesh.rotation.x = rotX; mesh.position.set(x, y, z); return mesh; };
 
-function hands(g, sleeve) {
+function handsImpl(g, sleeve) {
   // right hand on grip, left hand forward under the handguard
   g.add(box(0.065, 0.06, 0.11, MAT.glove, 0.0, -0.085, 0.07));
   const rs = box(0.07, 0.07, 0.2, sleeve, 0.03, -0.12, 0.22); rs.rotation.x = -0.35; g.add(rs);
@@ -27,8 +27,9 @@ function hands(g, sleeve) {
   const ls = box(0.065, 0.065, 0.22, sleeve, -0.08, -0.09, -0.04); ls.rotation.y = 0.35; ls.rotation.x = -0.25; g.add(ls);
 }
 
-export function buildWeaponModel(def, team) {
+export function buildWeaponModel(def, team, withHands = true) {
   const g = new THREE.Group();
+  const hands = withHands ? handsImpl : () => {};
   const sleeve = new THREE.MeshStandardMaterial({ color: team === 'CT' ? 0x2f4f7f : 0xc8a062, roughness: 0.9 });
   const cat = def.cat;
   if (cat === 'melee') {
@@ -45,6 +46,9 @@ export function buildWeaponModel(def, team) {
     g.add(box(0.03, 0.03, 0.18, MAT.dark, 0, -0.02, -0.07));
     g.add(box(0.03, 0.1, 0.045, MAT.dark, 0, -0.07, 0.02));   // grip (under hand)
     g.add(box(0.012, 0.02, 0.008, MAT.dark, 0, 0.045, -0.16));  // sight
+    g.add(box(0.012, 0.02, 0.012, MAT.dark, 0, 0.045, 0.02));   // rear sight
+    g.add(box(0.028, 0.008, 0.06, MAT.dark, 0, -0.045, -0.04)); // trigger guard
+    g.add(cyl(0.006, 0.05, MAT.dark, 0, 0.008, -0.19));          // muzzle
     g.userData.muzzle = new THREE.Vector3(0, 0.01, -0.18);
   } else if (cat === 'smg') {
     hands(g, sleeve);
@@ -80,6 +84,10 @@ export function buildWeaponModel(def, team) {
     g.add(box(0.04, 0.05, 0.22, body, 0, -0.005, 0.26));        // stock
     g.add(box(0.012, 0.03, 0.01, MAT.dark, 0, 0.05, -0.2));     // front sight
     g.add(box(0.03, 0.025, 0.03, MAT.dark, 0, 0.05, 0.05));     // rear sight
+    g.add(box(0.03, 0.09, 0.04, MAT.dark, 0, -0.08, 0.08));     // pistol grip
+    g.add(box(0.03, 0.008, 0.05, MAT.dark, 0, -0.04, 0.0));     // trigger guard
+    if (def.id === 'ak47') { g.add(cyl(0.008, 0.26, MAT.metal, 0, 0.045, -0.3)); g.add(box(0.045, 0.02, 0.08, MAT.wood, 0, 0.0, 0.18)); }
+    else { g.add(box(0.02, 0.035, 0.12, MAT.dark, 0, 0.055, -0.02)); g.add(box(0.04, 0.03, 0.03, MAT.dark, 0, 0.05, -0.16)); }
     g.userData.muzzle = new THREE.Vector3(0, 0.02, -0.62);
   } else if (cat === 'grenade') {
     g.add(box(0.08, 0.07, 0.14, MAT.glove, 0, -0.02, 0.04));
@@ -124,6 +132,7 @@ export class ViewModel {
     this.root.add(this.model);
     this.swap = 1;
   }
+  inspect() { if (!this.inspectT) this.inspectT = 1.6; }
   kick(amount = 1) {
     this.kickZ = Math.min(0.1, this.kickZ + 0.035 * amount);
     this.kickRot = Math.min(0.25, this.kickRot + 0.06 * amount);
@@ -134,6 +143,7 @@ export class ViewModel {
     const bobA = st.moving && st.onGround ? (st.walking ? 0.004 : 0.009) : 0.002;
     this.kickZ *= Math.exp(-dt * 14); this.kickRot *= Math.exp(-dt * 12);
     this.swap = Math.max(0, this.swap - dt * 3.2);
+    this.inspectT = Math.max(0, (this.inspectT || 0) - dt);
     this.swayX += (st.mouseDX * 0.0008 - this.swayX) * Math.min(1, dt * 10);
     this.swayY += (st.mouseDY * 0.0008 - this.swayY) * Math.min(1, dt * 10);
     const targetLower = st.scoped ? 1 : 0;
@@ -144,6 +154,11 @@ export class ViewModel {
     r.position.y += Math.sin(this.bobT) * bobA - this.swap * 0.35 - this.lower * 0.6 + this.swayY * 1.5;
     r.position.z += this.kickZ;
     r.rotation.set(-this.kickRot + this.swap * 0.6 - this.swayY * 3, this.swayX * 3, 0);
+    if (this.inspectT > 0) {
+      const k = 1 - this.inspectT / 1.6;              // 0..1 over the inspect
+      const a = Math.sin(k * Math.PI);
+      r.rotation.y += a * 1.2; r.rotation.z += a * 0.5; r.position.x -= a * 0.08; r.position.y += a * 0.03;
+    }
     if (st.reloading) {
       const k = st.reloadK; // 0..1
       const a = Math.sin(Math.min(1, k * 1.15) * Math.PI);

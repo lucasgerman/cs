@@ -18,7 +18,7 @@ export class HUD {
       crosshair: $('crosshair'), hitmarker: $('hitmarker'), vignette: $('damage-vignette'), flash: $('flash-overlay'), scope: $('scope-overlay'),
       spec: $('spectate-info'), timerBox: $('timer-box'), dmgDir: $('damage-dir'), buyMoney: $('buy-money'), buyMsg: $('buy-msg'),
       matchend: $('matchend'), armorIcon: $('armor-icon'), bombIcon: $('bomb-icon'), kitIcon: $('kit-icon'), deathPanel: $('death-panel'),
-      chat: $('chat'), roundEnd: $('round-end'), promptEl: $('prompt'), deathInfo: $('death-info'), fullmap: $('fullmap'), fullmapCanvas: $('fullmap-canvas'), moneyPop: $('money-pop'), burn: $('burn-overlay'),
+      chat: $('chat'), roundEnd: $('round-end'), promptEl: $('prompt'), buyTime: $('buy-time'), mates: $('teammates'), deathInfo: $('death-info'), fullmap: $('fullmap'), fullmapCanvas: $('fullmap-canvas'), moneyPop: $('money-pop'), burn: $('burn-overlay'),
     };
     this.lastMoney = null; this.fullmapOpen = false;
     this.announceUntil = 0; this.hintUntil = 0; this.progressT = 0; this.hitT = 0; this.hitHs = false;
@@ -329,6 +329,15 @@ export class HUD {
       this.setText('aT', el.aliveT, g.aliveCount('T')); this.setText('aCT', el.aliveCT, g.aliveCount('CT'));
     }
     el.burn.style.opacity = p.alive && p.burningUntil > g.now ? 0.55 : 0;
+    // buy-time countdown
+    const bt = g.phase === 'dm' ? 0 : g.buyTimeLeft();
+    if (bt > 0 && g.canBuy(p)) { this.setText('bt', el.buyTime, `${t('buyTime')} ${Math.ceil(bt)}s`); el.buyTime.style.display = ''; } else el.buyTime.style.display = 'none';
+    // teammates panel (every 0.25 s)
+    if ((now * 4 | 0) !== this.mateTick) {
+      this.mateTick = now * 4 | 0;
+      const mates = g.entities.filter(e => e.team === p.team && e !== p);
+      el.mates.innerHTML = mates.map(m => `<div class="mate ${m.alive ? '' : 'dead'}"><span class="mate-name">${m.name}${m.hasBomb ? ' 💣' : ''}</span><span class="mate-w">${m.alive && m.current ? m.current.def.name : ''}</span><span class="mate-hp"><i style="width:${m.alive ? m.hp : 0}%"></i></span><span class="mate-hpn">${m.alive ? m.hp : '✕'}</span></div>`).join('');
+    }
     // weapon bar
     const list = g.weaponList(p);
     const key = list.map(x => x.def.id + (x === p.current ? '*' : '')).join(',');

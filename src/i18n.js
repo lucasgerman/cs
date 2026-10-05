@@ -17,7 +17,7 @@ const DICT = {
     pickup: 'Press E to pick up {w}', plantPrompt: 'Hold E to plant the bomb', defusePrompt: 'Hold E to defuse the bomb',
     victory: 'VICTORY', defeat: 'DEFEAT', backMenu: 'Back to menu', youStats: 'You: {k} kills / {d} deaths — {dmg} damage',
     sbPlayer: 'Player', sbTeamCT: 'Counter-Terrorists', sbTeamT: 'Terrorists', sbFirstTo: 'first to {n}', mapClose: 'M to close',
-    planting2: 'Planting', paused: 'PAUSED', pausedSub: 'The match keeps running while the menu is open.',
+    planting2: 'Planting', paused: 'PAUSED', pausedSub: 'The match keeps running while the menu is open.', buyTime: 'Buy time', lockFail: 'The browser refused to capture the mouse. Click again in a second.',
     // bot chat
     cEnemyAt: 'Enemy spotted at {r}', cEnemyDown: 'Enemy down', cHsDown: 'Headshot! Enemy down', cDownAt: '{n} is down at {r}', cLetsGo: "Let's go {s}", cHold: "I'll hold {s}",
     cPlanted: 'Bomb planted at {s}', cDefused: 'Bomb defused!', cGoAll: 'Everyone go {s}!', cRotate: 'Rotate to {s}!', cRoger: 'Roger that', cMoving: 'Moving to {s}',
@@ -40,7 +40,7 @@ const DICT = {
     pickup: 'Pulsa E para recoger {w}', plantPrompt: 'Mantén E para plantar la bomba', defusePrompt: 'Mantén E para desactivar la bomba',
     victory: 'VICTORIA', defeat: 'DERROTA', backMenu: 'Volver al menú', youStats: 'Tú: {k} bajas / {d} muertes — {dmg} de daño',
     sbPlayer: 'Jugador', sbTeamCT: 'Antiterroristas', sbTeamT: 'Terroristas', sbFirstTo: 'primero a {n}', mapClose: 'M para cerrar',
-    planting2: 'Plantando', paused: 'PAUSA', pausedSub: 'La partida sigue mientras el menú está abierto.',
+    planting2: 'Plantando', paused: 'PAUSA', pausedSub: 'La partida sigue mientras el menú está abierto.', buyTime: 'Tiempo de compra', lockFail: 'El navegador no capturó el ratón. Haz clic de nuevo en un segundo.',
     cEnemyAt: 'Enemigo visto en {r}', cEnemyDown: 'Enemigo abatido', cHsDown: '¡A la cabeza! Enemigo abatido', cDownAt: '{n} ha caído en {r}', cLetsGo: 'Vamos a {s}', cHold: 'Yo cubro {s}',
     cPlanted: 'Bomba plantada en {s}', cDefused: '¡Bomba desactivada!', cGoAll: '¡Todos a {s}!', cRotate: '¡Rotad a {s}!', cRoger: 'Recibido', cMoving: 'Voy hacia {s}',
     cHoldPos: 'Mantened posiciones', cFollow: 'Seguidme', cContact: 'Contacto en {r}', cClear: '{r} despejado', you: 'Tú',

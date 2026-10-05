@@ -276,7 +276,7 @@ export class Game {
     this.grenades.update(dt);
     this.updateBomb(dt);
     this.updatePickups();
-    for (const e of this.entities) if (e.model) { animateHumanoid(e, dt); e.model.userData.tag.visible = e.alive && e.team === this.player.team; }
+    for (const e of this.entities) if (e.model) { animateHumanoid(e, dt, this.now); e.model.userData.tag.visible = e.alive && e.team === this.player.team; }
     this.updatePrompts();
     // bomb LED blink
     if (this.bomb.planted) { this.bombLed.visible = (this.now * 4 | 0) % 2 === 0; }
@@ -323,7 +323,7 @@ export class Game {
   aliveCount(team) { let n = 0; for (const e of this.entities) if (e.alive && e.team === team) n++; return n; }
   distToPlayer(p) { const e = this.player; return Math.hypot(p.x - e.pos.x, (p.y || 0) - e.pos.y, p.z - e.pos.z); }
   shake(a) { if (a > 0.05) this.controller.addShake(a); }
-  inspect() { this.viewModel.swap = 0.6; }
+  inspect() { this.viewModel.inspect(); }
 
   // ---------------- rounds & economy
   endRound(winner, reason, kind = '') {
@@ -844,7 +844,7 @@ export class Game {
       this.hud.hitmarker(part === 'head');
       this.audio.play(part === 'head' ? 'headshot' : hitArmor ? 'hit_armor' : 'hit', null, { volume: 0.6 });
     } else if (victim !== attacker) this.audio.play('hit', victim.pos, { maxDist: 25, volume: 0.5 });
-    if (victim.bot) victim.bot.onDamaged(attacker, srcPos);
+    if (victim.bot) { victim.bot.onDamaged(attacker, srcPos); victim.hitFlashUntil = this.now + 0.09; }
     if (victim.hp <= 0) { victim.hp = 0; this.kill(victim, attacker, def, part === 'head'); }
   }
 
@@ -859,7 +859,7 @@ export class Game {
       if (attacker.bot && Math.random() < 0.25) this.chat(attacker, hs ? t('cHsDown') : t('cEnemyDown'));
     } else if (attacker === victim) victim.money = Math.max(0, victim.money - 300);
     this.hud.killfeed(attacker, victim, def, hs);
-    if (this.phase === 'dm') victim.respawnAt = this.now + 3;
+    if (this.phase === 'dm') { victim.respawnAt = this.now + 3; victim.hideCorpseAfter = 6; } else victim.hideCorpseAfter = 0;
     // a teammate reports the death
     if (Math.random() < 0.35) {
       const mates = this.entities.filter(o => o.bot && o.alive && o.team === victim.team && o !== victim);
@@ -901,6 +901,12 @@ export class Game {
         else if (!o.bot.target && Math.random() < 0.3) { o.bot.lastKnown = { x: src.pos.x, z: src.pos.z }; o.bot.lookAt(src.pos.x, src.pos.y + 1.2, src.pos.z); }
       }
     }
+  }
+
+  buyTimeLeft() {
+    if (this.phase === 'freeze') return this.timer + ROUND.buyTime;
+    if (this.phase === 'live') return Math.max(0, this.timer - (ROUND.live - ROUND.buyTime));
+    return 0;
   }
 
   // Contextual "press E" prompts for the player.

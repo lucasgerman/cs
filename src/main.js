@@ -7,7 +7,7 @@ import { AudioManager } from './audio.js';
 import { ViewModel } from './viewmodel.js';
 import { PlayerController } from './player.js';
 import { DIFFICULTY } from './config.js';
-import { setLang, applyStatic } from './i18n.js';
+import { setLang, applyStatic, t } from './i18n.js';
 
 const $ = id => document.getElementById(id);
 
@@ -132,7 +132,15 @@ document.addEventListener('pointerlockchange', () => {
   if (input.locked) { ui = 'play'; pause.classList.add('hidden'); }
   else if (ui === 'play') { ui = 'pause'; pause.classList.remove('hidden'); hud.closeBuy(); hud.showScoreboard(false); $('p-sens').value = settings.sensitivity; $('p-sens-v').textContent = settings.sensitivity.toFixed(2); $('p-vol').value = settings.volume; $('p-vol-v').textContent = Math.round(settings.volume * 100) + '%'; }
 });
-document.addEventListener('pointerlockerror', () => { if (ui !== 'menu') { ui = 'pause'; pause.classList.remove('hidden'); } });
+document.addEventListener('pointerlockerror', () => {
+  if (ui === 'menu') return;
+  ui = 'pause'; pause.classList.remove('hidden');
+  $('lock-msg').textContent = t('lockFail');
+  // Chrome refuses to re-lock for ~1 s after Esc: retry automatically once
+  clearTimeout(window.__lockRetry);
+  window.__lockRetry = setTimeout(() => { if (ui === 'pause') requestLock(); }, 1400);
+});
+document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement === canvas) $('lock-msg').textContent = ''; });
 canvas.addEventListener('click', () => { if (ui === 'pause') requestLock(); });
 
 input.onLook = (dx, dy) => {
