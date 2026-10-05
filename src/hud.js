@@ -221,6 +221,7 @@ export class HUD {
     ctx.restore();
   }
   prompt(text) { if (this.lastText.prompt !== text) { this.lastText.prompt = text; this.el.promptEl.textContent = text; this.el.promptEl.style.opacity = text ? 1 : 0; } }
+  whiteFlash(a) { this.whiteT = performance.now() / 1000 + 0.9; this.whiteA = a; }
   moneyPopup(delta) {
     const el = document.createElement('div'); el.className = 'money-pop-item ' + (delta > 0 ? 'money-plus' : 'money-minus');
     el.textContent = (delta > 0 ? '+' : '') + '$' + delta;
@@ -372,6 +373,7 @@ export class HUD {
     const rem = p.blindUntil - g.now;
     let fl = 0;
     if (rem > 0) { const hold = p.flashDur * 0.45; fl = rem > p.flashDur - hold ? 1 : Math.min(1, rem / (p.flashDur - hold)); }
+    if (this.whiteT > now) fl = Math.max(fl, this.whiteA * Math.min(1, (this.whiteT - now) / 0.6));
     el.flash.style.opacity = fl;
     // scope
     const scoped = p.alive && w && w.def.scope && w.scoped;

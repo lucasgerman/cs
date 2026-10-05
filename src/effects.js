@@ -102,6 +102,26 @@ export class Effects {
     }
   }
 
+  bombExplosion(x, y, z) {
+    for (let i = 0; i < 4; i++) setTimeout(() => this.explosion(x + (Math.random() - 0.5) * 4, y + Math.random() * 2, z + (Math.random() - 0.5) * 4), i * 90);
+    // rising fireball + dark mushroom cloud
+    const fire = new THREE.Mesh(this.sphereGeo, new THREE.MeshBasicMaterial({ color: 0xffb040, transparent: true, opacity: 0.95 }));
+    fire.position.set(x, y + 2, z);
+    this.add(fire, 1.4, (k, o) => { const sc = 2 + k * 10; o.scale.set(sc, sc * 1.3, sc); o.position.y = y + 2 + k * 9; o.material.opacity = 0.9 * (1 - k); o.material.color.setHSL(0.07 - k * 0.05, 1, 0.55 - k * 0.3); }, o => o.material.dispose());
+    for (let i = 0; i < 40; i++) {
+      const s = new THREE.Sprite(this.puffMat.clone());
+      s.material.color.setHSL(0.07, 0.3, 0.15 + Math.random() * 0.15);
+      const a = Math.random() * Math.PI * 2, r = Math.random() * 3;
+      s.position.set(x + Math.cos(a) * r, y + 0.5 + Math.random() * 3, z + Math.sin(a) * r);
+      const vx = Math.cos(a) * (2 + Math.random() * 4), vz = Math.sin(a) * (2 + Math.random() * 4), vy = 4 + Math.random() * 6;
+      const dur = 4 + Math.random() * 3;
+      this.add(s, dur, (k, o, dt) => { const slow = 1 - k * 0.8; o.position.x += vx * dt * slow; o.position.z += vz * dt * slow; o.position.y += vy * dt * slow; const sc = 2 + k * 9; o.scale.set(sc, sc, sc); o.material.opacity = 0.75 * (1 - k * k); }, o => o.material.dispose());
+    }
+    const l = new THREE.PointLight(0xffc070, 400, 90, 1.5);
+    l.position.set(x, y + 3, z);
+    this.add(l, 1.2, (k, o) => { o.intensity = 400 * (1 - k); });
+  }
+
   flashBurst(x, y, z) {
     const s = new THREE.Sprite(this.flashMat);
     s.position.set(x, y, z);

@@ -389,6 +389,7 @@ export class Game {
     this.half = 2;
     this.tPlan = new TeamPlan(this, 'T'); this.ctPlan = new TeamPlan(this, 'CT');
     this.hud.announce(t('halftime'), 3);
+    this.hud.showScoreboard(true); setTimeout(() => this.hud.showScoreboard(false), 6000);
   }
 
   matchEnd(winner) {
@@ -478,7 +479,7 @@ export class Game {
   // ---------------- weapons & inventory
   selectWeapon(e, w) {
     if (!w || e.current === w) return;
-    if (e.current) e.lastWeapon = e.current;
+    if (e.current) { e.lastWeapon = e.current; if (e.current.reloadEnd > 0) e.current.reloadEnd = 0; } // switching cancels a reload
     e.current = w;
     w.scoped = false;
     w.nextShot = Math.max(w.nextShot, this.now + (w.def.cat === 'melee' ? 0.25 : 0.45));
@@ -508,6 +509,7 @@ export class Game {
 
   dropToGround(e, w) {
     if (!w || w.def.slot === 3 || w.def.slot === 4) return;
+    w.reloadEnd = 0;
     const mesh = buildWeaponModel(w.def, e.team);
     mesh.scale.set(1.4, 1.4, 1.4);
     mesh.rotation.set(Math.PI / 2, 0, Math.random() * Math.PI * 2);
@@ -632,9 +634,9 @@ export class Game {
 
   explodeBomb() {
     const b = this.bomb;
-    this.effects.explosion(b.pos.x, b.pos.y, b.pos.z);
-    this.effects.explosion(b.pos.x + 1, b.pos.y + 1, b.pos.z - 1);
+    this.effects.bombExplosion(b.pos.x, b.pos.y, b.pos.z);
     this.audio.play('bomb_explode', b.pos, { maxDist: 400, volume: 1.2 });
+    this.hud.whiteFlash(Math.max(0.2, 1 - this.distToPlayer(b.pos) / 60));
     this.shake(Math.max(0.3, 2.5 - this.distToPlayer(b.pos) / 30));
     const R = 24;
     for (const e of this.entities) {
