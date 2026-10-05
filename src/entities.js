@@ -95,8 +95,8 @@ export function animateHumanoid(e, dt) {
   u.rLeg.rotation.x = -Math.sin(u.phase) * swing;
   // arms hold the weapon forward
   const aim = 1.3 + e.pitch * 0.6;
-  u.rArm.rotation.x = aim; u.lArm.rotation.x = aim + 0.15;
-  u.rArm.rotation.z = 0.15; u.lArm.rotation.z = -0.35;
+  u.rArm.rotation.set(aim, 0, 0); u.lArm.rotation.set(aim + 0.1, 0, 0);
+  u.lArm.position.x = -0.22; u.rArm.position.x = 0.28;
   u.gun.rotation.x = e.pitch;
   u.gun.visible = !!e.showGun;
   const crouch = e.crouch ? 0.68 : 1;

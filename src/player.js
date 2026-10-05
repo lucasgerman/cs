@@ -59,7 +59,7 @@ export class PlayerController {
     // --- using (plant / defuse / pickup)
     const use = inp.down('KeyE');
     e.useHeld = use;
-    if (use) g.playerUse(e, dt); else { e.planting = false; e.defusing = false; }
+    if (use) g.playerUse(e, dt); else { e.planting = false; e.defusing = false; e.usePressHandled = false; }
     if (inp.pressed('KeyG')) g.dropWeapon(e);
 
     // --- movement (CS-like accelerate/friction, in m/s)
