@@ -79,7 +79,7 @@ export class Game {
       planting: false, defusing: false, plantProgress: 0, defuseProgress: 0, useHeld: false,
       recoilYaw: 0, recoilPitch: 0, model: null, bot: null, showGun: true, stepDist: 0,
       lastHitBy: null, lastHitTime: -10, throwing: false,
-      roundKills: 0, roundDmgGiven: 0, roundHitsGiven: 0, roundDmgTaken: 0, roundHitsTaken: 0, roundMoneyStart: 0, respawnAt: 0, lastCallout: -10, burningUntil: 0,
+      assists: 0, hsKills: 0, damagers: new Map(), roundKills: 0, roundDmgGiven: 0, roundHitsGiven: 0, roundDmgTaken: 0, roundHitsTaken: 0, roundMoneyStart: 0, respawnAt: 0, lastCallout: -10, burningUntil: 0,
     };
     if (!isPlayer) {
       e.model = createHumanoid(team, name);
@@ -147,7 +147,7 @@ export class Game {
     e.yaw = Math.random() * Math.PI * 2; e.pitch = 0;
     e.alive = true; e.hp = 100; e.armor = 100; e.helmet = true; e.kit = false;
     e.crouch = false; e.firing = false; e.blindUntil = 0; e.recoilYaw = 0; e.recoilPitch = 0; e.burningUntil = 0;
-    e.money = 16000;
+    e.money = 16000; e.damagers = new Map();
     if (e.bot) {
       const T = e.team === 'T';
       const prim = T ? ['ak47', 'galil', 'mac10', 'awp', 'ak47', 'ump45'] : ['m4a4', 'famas', 'mp9', 'awp', 'm4a4', 'ump45'];
@@ -198,7 +198,7 @@ export class Game {
       if (!e.current || !this.ownsWeapon(e, e.current)) e.current = e.weapons[2] || e.weapons[3];
       if (e.model) { e.model.visible = true; e.model.userData.deadT = 0; e.model.userData.tag.visible = true; }
       e.spottedUntil = 0;
-      e.roundKills = 0; e.roundDmgGiven = 0; e.roundHitsGiven = 0; e.roundDmgTaken = 0; e.roundHitsTaken = 0; e.roundMoneyStart = e.money; e.burningUntil = 0;
+      e.damagers = new Map(); e.roundKills = 0; e.roundDmgGiven = 0; e.roundHitsGiven = 0; e.roundDmgTaken = 0; e.roundHitsTaken = 0; e.roundMoneyStart = e.money; e.burningUntil = 0;
     }
     // bomb carrier
     const ts = this.entities.filter(e => e.team === 'T');
@@ -832,7 +832,7 @@ export class Game {
     victim.hp -= d;
     victim.lastHitBy = attacker; victim.lastHitTime = this.now;
     victim.roundDmgTaken += dealt; victim.roundHitsTaken++;
-    if (attacker && attacker !== victim) { attacker.damage += dealt; attacker.roundDmgGiven += dealt; attacker.roundHitsGiven++; }
+    if (attacker && attacker !== victim) { attacker.damage += dealt; attacker.roundDmgGiven += dealt; attacker.roundHitsGiven++; victim.damagers.set(attacker, (victim.damagers.get(attacker) || 0) + dealt); }
     if (victim.isPlayer) {
       const ang = srcPos ? Math.atan2(srcPos.x - victim.pos.x, -(srcPos.z - victim.pos.z)) : null;
       this.hud.damageFrom(ang, victim.yaw, d);
@@ -853,8 +853,11 @@ export class Game {
     victim.crouch = false; victim.planting = false; victim.defusing = false; victim.firing = false;
     victim.vel.x = 0; victim.vel.z = 0;
     this.audio.play('death', victim.isPlayer ? null : victim.pos, { maxDist: 30 });
+    // assists: anyone else who dealt 40+ damage this life
+    for (const [who, dmg] of victim.damagers) if (who !== attacker && who.alive !== undefined && who.team !== victim.team && dmg >= 40) who.assists++;
+    victim.damagers = new Map();
     if (attacker && attacker !== victim && attacker.team !== victim.team) {
-      attacker.kills++; attacker.roundKills++;
+      attacker.kills++; attacker.roundKills++; if (hs) attacker.hsKills++;
       attacker.money = Math.min(ECON.max, attacker.money + (def.kill ?? 300));
       if (attacker.bot && Math.random() < 0.25) this.chat(attacker, hs ? t('cHsDown') : t('cEnemyDown'));
     } else if (attacker === victim) victim.money = Math.max(0, victim.money - 300);

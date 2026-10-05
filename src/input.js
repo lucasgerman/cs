@@ -13,7 +13,7 @@ export class Input {
     });
     window.addEventListener('keyup', e => { this.keys.delete(e.code); });
     window.addEventListener('blur', () => { this.keys.clear(); this.mouse = [false, false, false]; });
-    window.addEventListener('mousedown', e => { if (!this.locked) return; this.mouse[e.button] = true; if (this.onMouseDown) this.onMouseDown(e.button); e.preventDefault(); });
+    window.addEventListener('mousedown', e => { if (!this.locked) return; if (e.target.closest && e.target.closest('input,button,select,label,a')) return; this.mouse[e.button] = true; if (this.onMouseDown) this.onMouseDown(e.button); e.preventDefault(); });
     window.addEventListener('mouseup', e => { this.mouse[e.button] = false; });
     window.addEventListener('contextmenu', e => { if (this.locked) e.preventDefault(); });
     window.addEventListener('wheel', e => { if (this.locked) this.wheel += Math.sign(e.deltaY); }, { passive: true });

@@ -21,6 +21,19 @@ export class AudioManager {
     for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
     return b;
   }
+  startAmbient() {
+    if (!this.ctx || this.ambient) return;
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource(); src.buffer = this.noiseBuf; src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 320; f.Q.value = 0.6;
+    const g = ctx.createGain(); g.gain.value = 0.045;
+    const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.09;
+    const lg = ctx.createGain(); lg.gain.value = 0.025;
+    lfo.connect(lg); lg.connect(g.gain);
+    src.connect(f); f.connect(g); g.connect(this.master);
+    src.start(); lfo.start();
+    this.ambient = { src, lfo };
+  }
   setListener(x, y, z, yaw) { this.listener.x = x; this.listener.y = y; this.listener.z = z; this.listener.yaw = yaw; }
 
   // Spatialize: returns {gain, pan} for a world position (or null for 2D).

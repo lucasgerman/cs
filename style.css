@@ -5,10 +5,14 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0a0d12; fon
 
 /* ---------- HUD ---------- */
 #hud { position: fixed; inset: 0; pointer-events: none; }
-#crosshair { position: absolute; left: 50%; top: 50%; width: 0; height: 0; --gap: 6px; }
-#crosshair .ch { position: absolute; background: #3cff5a; box-shadow: 0 0 0 1px rgba(0,0,0,0.6); }
-#crosshair .t, #crosshair .b { width: 2px; height: 7px; left: -1px; }
-#crosshair .l, #crosshair .r { height: 2px; width: 7px; top: -1px; }
+#crosshair { position: absolute; left: 50%; top: 50%; width: 0; height: 0; --gap: 6px; --ch-color: #3cff5a; --ch-len: 7px; --ch-thick: 2px; }
+#crosshair .ch { position: absolute; background: var(--ch-color); box-shadow: 0 0 0 1px rgba(0,0,0,0.6); }
+#crosshair .t, #crosshair .b { width: var(--ch-thick); height: var(--ch-len); left: calc(var(--ch-thick) / -2); }
+#crosshair .l, #crosshair .r { height: var(--ch-thick); width: var(--ch-len); top: calc(var(--ch-thick) / -2); }
+#crosshair.dot::after { content: ''; position: absolute; width: var(--ch-thick); height: var(--ch-thick); left: calc(var(--ch-thick) / -2); top: calc(var(--ch-thick) / -2); background: var(--ch-color); box-shadow: 0 0 0 1px rgba(0,0,0,0.6); }
+.ch-row { display: flex; gap: 6px; align-items: center; margin-top: 8px; font-size: 12px; }
+.ch-row select, .ch-row input[type=range] { flex: 1; }
+.ch-row select { background: #141a22; color: #eee; border: 1px solid rgba(255,255,255,0.15); padding: 4px; border-radius: 4px; }
 #crosshair .t { bottom: var(--gap); } #crosshair .b { top: var(--gap); }
 #crosshair .l { right: var(--gap); } #crosshair .r { left: var(--gap); }
 #hitmarker { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; transition: opacity 0.1s; }

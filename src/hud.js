@@ -270,8 +270,8 @@ export class HUD {
   renderScoreboard() {
     const g = this.game, sb = g.scoreboard();
     const team = (tm, rows) => `<div class="sb-team sb-${tm}"><div class="sb-head"><span>${tm === 'CT' ? t('sbTeamCT') : t('sbTeamT')}</span><span class="sb-score">${g.score[tm]}</span></div>
-      <table><tr><th>${t('sbPlayer')}</th><th>K</th><th>D</th><th>DMG</th><th>★</th><th>$</th></tr>
-      ${rows.map(e => `<tr class="${e.alive ? '' : 'dead'} ${e.isPlayer ? 'me' : ''}"><td>${e.name}${e.hasBomb ? ' 💣' : ''}${e.kit ? ' 🧰' : ''}</td><td>${e.kills}</td><td>${e.deaths}</td><td>${e.damage}</td><td>${e.mvp || ''}</td><td>${e.team === g.player.team ? '$' + e.money : '—'}</td></tr>`).join('')}</table></div>`;
+      <table><tr><th>${t('sbPlayer')}</th><th>K</th><th>A</th><th>D</th><th>ADR</th><th>HS%</th><th>★</th><th>$</th></tr>
+      ${rows.map(e => `<tr class="${e.alive ? '' : 'dead'} ${e.isPlayer ? 'me' : ''}"><td>${e.name}${e.hasBomb ? ' 💣' : ''}${e.kit ? ' 🧰' : ''}</td><td>${e.kills}</td><td>${e.assists}</td><td>${e.deaths}</td><td>${Math.round(e.damage / Math.max(1, g.phase === 'dm' ? 1 : g.round))}</td><td>${e.kills ? Math.round(100 * e.hsKills / e.kills) : 0}</td><td>${e.mvp || ''}</td><td>${e.team === g.player.team ? '$' + e.money : '—'}</td></tr>`).join('')}</table></div>`;
     this.el.score.innerHTML = `<div class="sb-title">${g.map.name} — ${g.phase === 'dm' ? t('dmLabel') : `${t('round')} ${g.round} — ${t('sbFirstTo', { n: g.target })}`}</div><div class="sb-cols">${team('CT', sb.CT)}${team('T', sb.T)}</div>
       <div class="sb-log">${g.roundLog.slice(-12).map(r => `<span class="rl-${r.winner}" title="${r.reason}">${r.round}</span>`).join('')}</div>`;
   }
@@ -287,6 +287,15 @@ export class HUD {
       <table>${rows.map(e => `<tr class="${e.isPlayer ? 'me' : ''}"><td class="kf-${e.team}">${e.name}</td><td>${e.kills}</td><td>${e.deaths}</td><td>${e.damage}</td></tr>`).join('')}</table>
       <button id="me-menu">${t('backMenu')}</button></div>`;
     el.querySelector('#me-menu').onclick = () => { el.classList.add('hidden'); document.dispatchEvent(new CustomEvent('backToMenu')); };
+  }
+
+  applyCrosshair(cfg) {
+    const ch = this.el.crosshair;
+    ch.style.setProperty('--ch-color', cfg.color);
+    ch.style.setProperty('--ch-len', cfg.size + 'px');
+    ch.style.setProperty('--ch-thick', cfg.thickness + 'px');
+    ch.classList.toggle('dot', !!cfg.dot);
+    this.chGapBase = cfg.gap;
   }
 
   // ---------- per-frame
@@ -370,7 +379,7 @@ export class HUD {
     el.crosshair.classList.toggle('hidden', scoped || !p.alive);
     if (p.alive && w && w.def.spread) {
       const spr = currentSpread(p, w);
-      const gap = 4 + spr * 7;
+      const gap = (this.chGapBase ?? 4) + spr * 7;
       el.crosshair.style.setProperty('--gap', gap + 'px');
     }
     // spectating

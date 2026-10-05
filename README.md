@@ -17,7 +17,7 @@ Then open <http://localhost:8000> and click **PLAY**.
 
 ## What's in the game
 
-- **English / Spanish UI** and a graphics quality setting (shadows and resolution) for modest machines.
+- **English / Spanish UI**, graphics quality setting (shadows and resolution), crosshair customization (color, size, gap, thickness, dot) and four bot difficulties up to Expert.
 - **Three modes** — Competitive (MR12, first to 13), Short (MR8, first to 9) and team Deathmatch (10 minutes, instant respawns, buy anywhere).
 
 - **Competitive bomb defusal (MR12)** — first to 13 rounds, side swap at halftime, MR3 overtime, 10 s freeze time, 1:55 rounds, 40 s bomb timer, 10 s / 5 s defuse (with kit).
@@ -27,7 +27,7 @@ Then open <http://localhost:8000> and click **PLAY**.
 - **Grenades** — bouncing physics, HE splash damage with line-of-sight, flashbangs that blind players and bots based on view angle, smokes that block bot vision, molotov / incendiary fire areas that burn (smokes extinguish them).
 - **Wallbangs** — rifles, the AWP and the Deagle shoot through crates, sandbags and thin walls with reduced damage; bullets also pass through bodies.
 - **Bots** — 5v5 with A* pathfinding, team strategies (site rush / split, holds, rotations, retakes), reaction time & aim settling that scale with difficulty, counter-strafing, bomb planting/defusing, weapon pickups, economy-aware buying, grenade usage, team chat callouts, and they obey your radio commands (Z go A, X go B, V hold, T follow, Y report).
-- **HUD** — rotating radar with spotted enemies, full map overlay (M), kill feed, team chat, scoreboard with MVP stars (Tab), round-end panel with MVP and income, death panel with damage given/taken, money popups, dynamic crosshair, hit markers, damage direction indicators, aim punch, bomb status, buy menu, spectator mode after death.
+- **HUD** — rotating radar with spotted enemies, full map overlay (M), kill feed, team chat, scoreboard with kills, assists, ADR, headshot % and MVP stars (Tab), teammates panel with HP, round-end panel with MVP and income, death panel with damage given/taken, money popups, dynamic crosshair, hit markers, damage direction indicators, aim punch, bomb status, buy menu, spectator mode after death.
 - **Movement** — Source-style ground friction / acceleration with air-strafing, walking (Shift), crouching, jumping onto crates.
 
 ## Controls

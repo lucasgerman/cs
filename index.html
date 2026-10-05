@@ -94,6 +94,7 @@
             <label><input type="radio" name="difficulty" value="easy"><span data-i18n="easy">Easy</span></label>
             <label><input type="radio" name="difficulty" value="normal" checked><span data-i18n="normal">Normal</span></label>
             <label><input type="radio" name="difficulty" value="hard"><span data-i18n="hard">Hard</span></label>
+            <label><input type="radio" name="difficulty" value="expert"><span data-i18n="expert">Expert</span></label>
           </div>
         </div>
         <div class="opt">
@@ -146,6 +147,11 @@
       <p data-i18n="pausedSub">The match keeps running while the menu is open.</p>
       <div class="opt"><label><span data-i18n="sensitivity">Sensitivity</span> <span id="p-sens-v">2.00</span></label><input id="p-sens" type="range" min="0.3" max="6" step="0.05" value="2"></div>
       <div class="opt"><label><span data-i18n="volume">Volume</span> <span id="p-vol-v">70%</span></label><input id="p-vol" type="range" min="0" max="1" step="0.05" value="0.7"></div>
+      <div class="opt"><label data-i18n="crosshair">Crosshair</label>
+        <div class="ch-row"><span data-i18n="chColor">Color</span><select id="ch-color"><option value="#3cff5a">Green</option><option value="#ffffff">White</option><option value="#4ff0ff">Cyan</option><option value="#ffe04a">Yellow</option><option value="#ff4a4a">Red</option><option value="#ff5ce0">Pink</option></select>
+          <label style="display:flex;align-items:center;gap:4px;margin:0;text-transform:none;letter-spacing:0;opacity:1"><input id="ch-dot" type="checkbox"> <span data-i18n="chDot">Dot</span></label></div>
+        <div class="ch-row"><span data-i18n="chSize">Size</span><input id="ch-size" type="range" min="2" max="16" step="1" value="7"><span data-i18n="chGap">Gap</span><input id="ch-gap" type="range" min="0" max="14" step="1" value="4"><span data-i18n="chThick">Thickness</span><input id="ch-thick" type="range" min="1" max="4" step="1" value="2"></div>
+      </div>
       <button id="btn-resume" data-i18n="resume">Resume (click)</button>
       <div id="lock-msg"></div>
       <button id="btn-quit" class="secondary" data-i18n="quit">Quit to menu</button>

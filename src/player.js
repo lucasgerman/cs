@@ -185,8 +185,10 @@ export class PlayerController {
       camera.rotation.y = t.yaw; camera.rotation.x = t.pitch; camera.rotation.z = 0;
     } else {
       const f = this.freeCam;
-      camera.position.set(f.x, f.y, f.z);
-      camera.rotation.y = f.yaw; camera.rotation.x = f.pitch; camera.rotation.z = 0;
+      // death camera: sink to the ground and roll during the spectate delay
+      const k = this.specDelay > 0 ? Math.min(1, (2.0 - this.specDelay) / 0.6) : 0;
+      camera.position.set(f.x, f.y - k * 1.25, f.z);
+      camera.rotation.y = f.yaw; camera.rotation.x = f.pitch - k * 0.25; camera.rotation.z = k * 0.35;
     }
   }
 

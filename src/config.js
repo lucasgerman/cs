@@ -45,6 +45,7 @@ export const DIFFICULTY = {
   easy:   { reaction: 0.9,  aimSigma: 5.0, turnSpeed: 220, hsChance: 0.05, settle: 0.7, burst: 0.3, sight: 45 },
   normal: { reaction: 0.5,  aimSigma: 2.6, turnSpeed: 420, hsChance: 0.15, settle: 1.3, burst: 0.5, sight: 60 },
   hard:   { reaction: 0.25, aimSigma: 1.3, turnSpeed: 800, hsChance: 0.30, settle: 2.2, burst: 0.7, sight: 80 },
+  expert: { reaction: 0.15, aimSigma: 0.8, turnSpeed: 1100, hsChance: 0.45, settle: 3.0, burst: 0.8, sight: 95 },
 };
 
 export const BOT_NAMES = [

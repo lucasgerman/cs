@@ -59,6 +59,7 @@ const STATIC = {
     c4: '<b>Z</b> go A · <b>X</b> go B · <b>V</b> hold · <b>T</b> follow me · <b>Y</b> report in (radio commands to bots)',
     c5: 'Competitive · MR12 (first to 13) · 5v5 vs bots · buy time 20s · bomb 40s',
     paused: 'PAUSED', pausedSub: 'The match keeps running while the menu is open.', resume: 'Resume (click)', quit: 'Quit to menu', sensitivity: 'Sensitivity',
+    crosshair: 'Crosshair', chColor: 'Color', chDot: 'Dot', chSize: 'Size', chGap: 'Gap', chThick: 'Thickness', expert: 'Expert',
   },
   es: {
     name: 'Tu nombre', mode: 'Modo de juego', team: 'Equipo', difficulty: 'Dificultad de los bots', players: 'Jugadores por equipo', sens: 'Sensibilidad del ratón', volume: 'Volumen', fov: 'Campo de visión',
@@ -70,6 +71,7 @@ const STATIC = {
     c4: '<b>Z</b> ir a A · <b>X</b> ir a B · <b>V</b> mantener · <b>T</b> seguidme · <b>Y</b> informar (órdenes por radio a los bots)',
     c5: 'Competitivo · MR12 (primero a 13) · 5c5 contra bots · compra 20 s · bomba 40 s',
     paused: 'PAUSA', pausedSub: 'La partida sigue mientras el menú está abierto.', resume: 'Continuar (clic)', quit: 'Salir al menú', sensitivity: 'Sensibilidad',
+    crosshair: 'Mira', chColor: 'Color', chDot: 'Punto', chSize: 'Tamaño', chGap: 'Hueco', chThick: 'Grosor', expert: 'Experto',
   },
 };
 

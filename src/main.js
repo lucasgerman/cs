@@ -12,7 +12,7 @@ import { setLang, applyStatic, t } from './i18n.js';
 const $ = id => document.getElementById(id);
 
 const settings = {
-  team: 'T', difficulty: 'normal', botsPerTeam: 5, sensitivity: 2.0, volume: 0.7, fov: 74, playerName: 'Player', mode: 'competitive', lang: (navigator.language || 'en').startsWith('es') ? 'es' : 'en', gfx: 'high',
+  team: 'T', difficulty: 'normal', botsPerTeam: 5, sensitivity: 2.0, volume: 0.7, fov: 74, playerName: 'Player', mode: 'competitive', lang: (navigator.language || 'en').startsWith('es') ? 'es' : 'en', gfx: 'high', crosshair: { color: '#3cff5a', size: 7, gap: 4, thickness: 2, dot: false },
 };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('cs2web-settings') || '{}')); } catch (e) { /* ignore */ }
 const saveSettings = () => { try { localStorage.setItem('cs2web-settings', JSON.stringify(settings)); } catch (e) { /* ignore */ } };
@@ -81,6 +81,18 @@ function fillMenu() {
   $('opt-name').value = settings.playerName;
 }
 fillMenu();
+function fillCrosshair() {
+  const c = settings.crosshair;
+  $('ch-color').value = c.color; $('ch-size').value = c.size; $('ch-gap').value = c.gap; $('ch-thick').value = c.thickness; $('ch-dot').checked = !!c.dot;
+  hud.applyCrosshair(c);
+}
+fillCrosshair();
+for (const id of ['ch-color', 'ch-size', 'ch-gap', 'ch-thick', 'ch-dot']) {
+  $(id).oninput = () => {
+    settings.crosshair = { color: $('ch-color').value, size: +$('ch-size').value, gap: +$('ch-gap').value, thickness: +$('ch-thick').value, dot: $('ch-dot').checked };
+    hud.applyCrosshair(settings.crosshair); saveSettings();
+  };
+}
 for (const r of document.querySelectorAll('input[name=lang]')) r.onchange = e => { settings.lang = e.target.value; setLang(settings.lang); saveSettings(); };
 function applyGraphics() {
   const q = settings.gfx;
@@ -107,7 +119,7 @@ function requestLock() {
 
 $('btn-play').onclick = () => {
   applyMenuSettings();
-  audio.init(); audio.setVolume(settings.volume);
+  audio.init(); audio.setVolume(settings.volume); audio.startAmbient();
   menu.classList.add('hidden');
   $('hud').classList.remove('hidden');
   game.startMatch(controller);
