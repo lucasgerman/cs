@@ -7,11 +7,12 @@ import { AudioManager } from './audio.js';
 import { ViewModel } from './viewmodel.js';
 import { PlayerController } from './player.js';
 import { DIFFICULTY } from './config.js';
+import { setLang, applyStatic } from './i18n.js';
 
 const $ = id => document.getElementById(id);
 
 const settings = {
-  team: 'T', difficulty: 'normal', botsPerTeam: 5, sensitivity: 2.0, volume: 0.7, fov: 74, playerName: 'Player', mode: 'competitive',
+  team: 'T', difficulty: 'normal', botsPerTeam: 5, sensitivity: 2.0, volume: 0.7, fov: 74, playerName: 'Player', mode: 'competitive', lang: (navigator.language || 'en').startsWith('es') ? 'es' : 'en', gfx: 'high',
 };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('cs2web-settings') || '{}')); } catch (e) { /* ignore */ }
 const saveSettings = () => { try { localStorage.setItem('cs2web-settings', JSON.stringify(settings)); } catch (e) { /* ignore */ } };
@@ -56,6 +57,8 @@ const menu = $('menu'), pause = $('pause');
 function applyMenuSettings() {
   settings.team = document.querySelector('input[name=team]:checked').value;
   settings.mode = document.querySelector('input[name=mode]:checked').value;
+  settings.gfx = document.querySelector('input[name=gfx]:checked').value;
+  applyGraphics();
   settings.difficulty = document.querySelector('input[name=difficulty]:checked').value;
   settings.botsPerTeam = parseInt($('opt-bots').value, 10);
   settings.sensitivity = parseFloat($('opt-sens').value);
@@ -67,6 +70,9 @@ function applyMenuSettings() {
 function fillMenu() {
   document.querySelector(`input[name=team][value=${settings.team}]`).checked = true;
   (document.querySelector(`input[name=mode][value=${settings.mode}]`) || document.querySelector('input[name=mode]')).checked = true;
+  (document.querySelector(`input[name=gfx][value=${settings.gfx}]`) || document.querySelector('input[name=gfx]')).checked = true;
+  (document.querySelector(`input[name=lang][value=${settings.lang}]`) || document.querySelector('input[name=lang]')).checked = true;
+  setLang(settings.lang);
   document.querySelector(`input[name=difficulty][value=${settings.difficulty}]`).checked = true;
   $('opt-bots').value = settings.botsPerTeam;
   $('opt-sens').value = settings.sensitivity; $('opt-sens-v').textContent = settings.sensitivity.toFixed(2);
@@ -75,6 +81,16 @@ function fillMenu() {
   $('opt-name').value = settings.playerName;
 }
 fillMenu();
+for (const r of document.querySelectorAll('input[name=lang]')) r.onchange = e => { settings.lang = e.target.value; setLang(settings.lang); saveSettings(); };
+function applyGraphics() {
+  const q = settings.gfx;
+  renderer.shadowMap.enabled = q !== 'low';
+  renderer.setPixelRatio(q === 'low' ? 1 : Math.min(devicePixelRatio, q === 'medium' ? 1.25 : 1.5));
+  const sun = scene.children.find(o => o.isDirectionalLight);
+  if (sun) { const size = q === 'high' ? 4096 : 2048; if (sun.shadow.mapSize.x !== size) { sun.shadow.mapSize.set(size, size); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } } }
+  scene.traverse(o => { if (o.material && o.material.needsUpdate !== undefined) o.material.needsUpdate = true; });
+}
+applyGraphics();
 $('opt-sens').oninput = e => { $('opt-sens-v').textContent = parseFloat(e.target.value).toFixed(2); settings.sensitivity = parseFloat(e.target.value); };
 $('opt-vol').oninput = e => { $('opt-vol-v').textContent = Math.round(e.target.value * 100) + '%'; settings.volume = parseFloat(e.target.value); audio.setVolume(settings.volume); };
 $('opt-fov').oninput = e => { $('opt-fov-v').textContent = e.target.value; settings.fov = parseInt(e.target.value, 10); };

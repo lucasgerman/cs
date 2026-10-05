@@ -17,6 +17,7 @@ Then open <http://localhost:8000> and click **PLAY**.
 
 ## What's in the game
 
+- **English / Spanish UI** and a graphics quality setting (shadows and resolution) for modest machines.
 - **Three modes** — Competitive (MR12, first to 13), Short (MR8, first to 9) and team Deathmatch (10 minutes, instant respawns, buy anywhere).
 
 - **Competitive bomb defusal (MR12)** — first to 13 rounds, side swap at halftime, MR3 overtime, 10 s freeze time, 1:55 rounds, 40 s bomb timer, 10 s / 5 s defuse (with kit).

@@ -29,6 +29,7 @@
     <div id="announce"></div>
     <div id="subannounce"></div>
     <div id="hint"></div>
+    <div id="prompt"></div>
     <div id="progress"><div id="progress-label">Planting</div><div class="bar"><div id="progress-fill"></div></div></div>
     <div id="spectate-info"></div>
     <div id="death-panel" class="hidden">Spectating — click to switch target</div>
@@ -66,57 +67,72 @@
       <div class="logo"><span class="logo-cs">COUNTER-STRIKE</span><span class="logo-2">2</span><span class="logo-sub">BROWSER EDITION</span></div>
       <div class="menu-grid">
         <div class="opt">
-          <label>Your name</label>
+          <label data-i18n="name">Your name</label>
           <input id="opt-name" type="text" maxlength="14" value="Player">
         </div>
         <div class="opt">
-          <label>Game mode</label>
+          <label data-i18n="mode">Game mode</label>
           <div class="seg">
-            <label><input type="radio" name="mode" value="competitive" checked><span>Competitive MR12</span></label>
-            <label><input type="radio" name="mode" value="short"><span>Short MR8</span></label>
-            <label><input type="radio" name="mode" value="deathmatch"><span>Deathmatch</span></label>
+            <label><input type="radio" name="mode" value="competitive" checked><span data-i18n="modeComp">Competitive MR12</span></label>
+            <label><input type="radio" name="mode" value="short"><span data-i18n="modeShort">Short MR8</span></label>
+            <label><input type="radio" name="mode" value="deathmatch"><span data-i18n="modeDM">Deathmatch</span></label>
           </div>
         </div>
         <div class="opt">
-          <label>Team</label>
+          <label data-i18n="team">Team</label>
           <div class="seg">
-            <label><input type="radio" name="team" value="T" checked><span>Terrorists</span></label>
-            <label><input type="radio" name="team" value="CT"><span>Counter-Terrorists</span></label>
-            <label><input type="radio" name="team" value="random"><span>Random</span></label>
+            <label><input type="radio" name="team" value="T" checked><span data-i18n="teamT">Terrorists</span></label>
+            <label><input type="radio" name="team" value="CT"><span data-i18n="teamCT">Counter-Terrorists</span></label>
+            <label><input type="radio" name="team" value="random"><span data-i18n="random">Random</span></label>
           </div>
         </div>
         <div class="opt">
-          <label>Bot difficulty</label>
+          <label data-i18n="difficulty">Bot difficulty</label>
           <div class="seg">
-            <label><input type="radio" name="difficulty" value="easy"><span>Easy</span></label>
-            <label><input type="radio" name="difficulty" value="normal" checked><span>Normal</span></label>
-            <label><input type="radio" name="difficulty" value="hard"><span>Hard</span></label>
+            <label><input type="radio" name="difficulty" value="easy"><span data-i18n="easy">Easy</span></label>
+            <label><input type="radio" name="difficulty" value="normal" checked><span data-i18n="normal">Normal</span></label>
+            <label><input type="radio" name="difficulty" value="hard"><span data-i18n="hard">Hard</span></label>
           </div>
         </div>
         <div class="opt">
-          <label>Players per team</label>
+          <label data-i18n="players">Players per team</label>
           <select id="opt-bots"><option value="3">3 vs 3</option><option value="4">4 vs 4</option><option value="5" selected>5 vs 5</option></select>
         </div>
         <div class="opt">
-          <label>Mouse sensitivity <span id="opt-sens-v">2.00</span></label>
+          <label><span data-i18n="sens">Mouse sensitivity</span> <span id="opt-sens-v">2.00</span></label>
           <input id="opt-sens" type="range" min="0.3" max="6" step="0.05" value="2">
         </div>
         <div class="opt">
-          <label>Volume <span id="opt-vol-v">70%</span></label>
+          <label><span data-i18n="volume">Volume</span> <span id="opt-vol-v">70%</span></label>
           <input id="opt-vol" type="range" min="0" max="1" step="0.05" value="0.7">
         </div>
         <div class="opt">
-          <label>Field of view <span id="opt-fov-v">74</span></label>
+          <label data-i18n="language">Language</label>
+          <div class="seg">
+            <label><input type="radio" name="lang" value="en" checked><span>English</span></label>
+            <label><input type="radio" name="lang" value="es"><span>Español</span></label>
+          </div>
+        </div>
+        <div class="opt">
+          <label data-i18n="graphics">Graphics quality</label>
+          <div class="seg">
+            <label><input type="radio" name="gfx" value="low"><span data-i18n="gLow">Low</span></label>
+            <label><input type="radio" name="gfx" value="medium"><span data-i18n="gMed">Medium</span></label>
+            <label><input type="radio" name="gfx" value="high" checked><span data-i18n="gHigh">High</span></label>
+          </div>
+        </div>
+        <div class="opt">
+          <label><span data-i18n="fov">Field of view</span> <span id="opt-fov-v">74</span></label>
           <input id="opt-fov" type="range" min="60" max="100" step="1" value="74">
         </div>
       </div>
-      <button id="btn-play">PLAY — Dust II</button>
+      <button id="btn-play" data-i18n="play">PLAY — Dust II</button>
       <div class="controls">
-        <div><b>WASD</b> move · <b>Shift</b> walk · <b>Ctrl</b> crouch · <b>Space</b> jump</div>
-        <div><b>Mouse</b> aim/fire · <b>RMB</b> scope / underhand throw · <b>R</b> reload · <b>Wheel/1-5/Q</b> weapons</div>
-        <div><b>B</b> buy menu · <b>E</b> plant / defuse / pick up · <b>G</b> drop · <b>Tab</b> scoreboard · <b>M</b> map · <b>Esc</b> pause</div>
-        <div><b>Z</b> go A · <b>X</b> go B · <b>V</b> hold · <b>T</b> follow me · <b>Y</b> report in (radio commands to bots)</div>
-        <div class="mode">Competitive · MR12 (first to 13) · 5v5 vs bots · buy time 20s · bomb 40s</div>
+        <div data-i18n="c1"><b>WASD</b> move · <b>Shift</b> walk · <b>Ctrl</b> crouch · <b>Space</b> jump</div>
+        <div data-i18n="c2"><b>Mouse</b> aim/fire · <b>RMB</b> scope / underhand throw · <b>R</b> reload · <b>Wheel/1-5/Q</b> weapons</div>
+        <div data-i18n="c3"><b>B</b> buy menu · <b>E</b> plant / defuse / pick up · <b>G</b> drop · <b>Tab</b> scoreboard · <b>M</b> map · <b>Esc</b> pause</div>
+        <div data-i18n="c4"><b>Z</b> go A · <b>X</b> go B · <b>V</b> hold · <b>T</b> follow me · <b>Y</b> report in (radio commands to bots)</div>
+        <div class="mode" data-i18n="c5">Competitive · MR12 (first to 13) · 5v5 vs bots · buy time 20s · bomb 40s</div>
       </div>
     </div>
   </div>
@@ -124,12 +140,12 @@
   <!-- Pause -->
   <div id="pause" class="hidden">
     <div class="pause-card">
-      <h2>PAUSED</h2>
-      <p>The match keeps running while the menu is open.</p>
-      <div class="opt"><label>Sensitivity <span id="p-sens-v">2.00</span></label><input id="p-sens" type="range" min="0.3" max="6" step="0.05" value="2"></div>
-      <div class="opt"><label>Volume <span id="p-vol-v">70%</span></label><input id="p-vol" type="range" min="0" max="1" step="0.05" value="0.7"></div>
-      <button id="btn-resume">Resume (click)</button>
-      <button id="btn-quit" class="secondary">Quit to menu</button>
+      <h2 data-i18n="paused">PAUSED</h2>
+      <p data-i18n="pausedSub">The match keeps running while the menu is open.</p>
+      <div class="opt"><label><span data-i18n="sensitivity">Sensitivity</span> <span id="p-sens-v">2.00</span></label><input id="p-sens" type="range" min="0.3" max="6" step="0.05" value="2"></div>
+      <div class="opt"><label><span data-i18n="volume">Volume</span> <span id="p-vol-v">70%</span></label><input id="p-vol" type="range" min="0" max="1" step="0.05" value="0.7"></div>
+      <button id="btn-resume" data-i18n="resume">Resume (click)</button>
+      <button id="btn-quit" class="secondary" data-i18n="quit">Quit to menu</button>
     </div>
   </div>
 

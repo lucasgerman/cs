@@ -1,6 +1,7 @@
 // DOM-based HUD: stats, timer, radar, killfeed, buy menu, scoreboard, overlays.
 import { WEAPONS, GEAR, BUY_MENU, currentSpread } from './weapons.js';
 import { ROUND } from './config.js';
+import { t } from './i18n.js';
 
 const $ = id => document.getElementById(id);
 const fmtTime = s => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
@@ -17,7 +18,7 @@ export class HUD {
       crosshair: $('crosshair'), hitmarker: $('hitmarker'), vignette: $('damage-vignette'), flash: $('flash-overlay'), scope: $('scope-overlay'),
       spec: $('spectate-info'), timerBox: $('timer-box'), dmgDir: $('damage-dir'), buyMoney: $('buy-money'), buyMsg: $('buy-msg'),
       matchend: $('matchend'), armorIcon: $('armor-icon'), bombIcon: $('bomb-icon'), kitIcon: $('kit-icon'), deathPanel: $('death-panel'),
-      chat: $('chat'), roundEnd: $('round-end'), deathInfo: $('death-info'), fullmap: $('fullmap'), fullmapCanvas: $('fullmap-canvas'), moneyPop: $('money-pop'), burn: $('burn-overlay'),
+      chat: $('chat'), roundEnd: $('round-end'), promptEl: $('prompt'), deathInfo: $('death-info'), fullmap: $('fullmap'), fullmapCanvas: $('fullmap-canvas'), moneyPop: $('money-pop'), burn: $('burn-overlay'),
     };
     this.lastMoney = null; this.fullmapOpen = false;
     this.announceUntil = 0; this.hintUntil = 0; this.progressT = 0; this.hitT = 0; this.hitHs = false;
@@ -92,7 +93,7 @@ export class HUD {
   // ---------- buy menu
   buildBuyMenu() {
     const root = this.el.buy;
-    root.innerHTML = `<div class="buy-head"><div class="buy-title">BUY MENU</div><div class="buy-money">$<span id="buy-money">0</span></div><div class="buy-close" data-close="1">✕ Close (B)</div></div><div class="buy-cols"></div><div id="buy-msg"></div>`;
+    root.innerHTML = `<div class="buy-head"><div class="buy-title" data-i18n-key="buyMenu">BUY MENU</div><div class="buy-money">$<span id="buy-money">0</span></div><div class="buy-close" data-close="1">✕ <span data-i18n-key="close">Close (B)</span></div></div><div class="buy-cols"></div><div id="buy-msg"></div>`;
     const cols = root.querySelector('.buy-cols');
     for (const cat of BUY_MENU) {
       const col = document.createElement('div'); col.className = 'buy-col';
@@ -112,7 +113,8 @@ export class HUD {
     if (this.buyOpen) { this.closeBuy(); return; }
     const g = this.game;
     if (!g.player.alive) return;
-    if (!g.canBuy(g.player)) { this.hint('You can only buy in your spawn zone during buy time', 2); this.game.audio.play('deny'); return; }
+    if (!g.canBuy(g.player)) { this.hint(t('buyHint'), 2); this.game.audio.play('deny'); return; }
+    for (const el of this.el.buy.querySelectorAll('[data-i18n-key]')) el.textContent = t(el.dataset.i18nKey);
     this.buyOpen = true; this.el.buy.classList.remove('hidden'); this.el.cursor.classList.remove('hidden');
     this.cursor = { x: innerWidth / 2, y: innerHeight / 2 }; this.moveCursor(0, 0);
     this.refreshBuy();
@@ -157,7 +159,7 @@ export class HUD {
   // ---------- chat / panels
   chat(e, text) {
     const row = document.createElement('div'); row.className = 'chat-row';
-    row.innerHTML = `<span class="kf-${e.team}">${e.isPlayer ? 'You' : e.name}</span><span class="chat-sep">:</span><span class="chat-text">${text}</span>`;
+    row.innerHTML = `<span class="kf-${e.team}">${e.isPlayer ? t('you') : e.name}</span><span class="chat-sep">:</span><span class="chat-text">${text}</span>`;
     this.el.chat.appendChild(row);
     setTimeout(() => row.classList.add('fade'), 7000);
     setTimeout(() => row.remove(), 8000);
@@ -167,20 +169,20 @@ export class HUD {
   showRoundEnd(d) {
     const el = this.el.roundEnd;
     const delta = d.moneyDelta;
-    el.innerHTML = `<div class="re-title ${d.won ? 'win' : 'lose'}">${d.won ? 'ROUND WON' : 'ROUND LOST'}</div>
+    el.innerHTML = `<div class="re-title ${d.won ? 'win' : 'lose'}">${d.won ? t('roundWon') : t('roundLost')}</div>
       <div class="re-reason">${d.reason}</div>
-      <div class="re-row"><span class="re-label">MVP</span><span>${d.mvp ? `<b class="kf-${d.mvp.team}">${d.mvp.isPlayer ? 'You' : d.mvp.name}</b> — ${d.mvpWhy}` : '—'}</span></div>
-      <div class="re-row"><span class="re-label">Your round</span><span>${d.player.roundKills} kills · ${d.player.roundDmgGiven} dmg in ${d.player.roundHitsGiven} hits</span></div>
-      <div class="re-row"><span class="re-label">Income</span><span class="${delta >= 0 ? 'money-plus' : 'money-minus'}">${delta >= 0 ? '+' : ''}$${delta}</span></div>`;
+      <div class="re-row"><span class="re-label">${t('mvp')}</span><span>${d.mvp ? `<b class="kf-${d.mvp.team}">${d.mvp.isPlayer ? t('you') : d.mvp.name}</b> — ${d.mvpWhy}` : '—'}</span></div>
+      <div class="re-row"><span class="re-label">${t('yourRound')}</span><span>${d.player.roundKills} ${t('kills')} · ${d.player.roundDmgGiven} dmg ${t('inHits', { n: d.player.roundHitsGiven })}</span></div>
+      <div class="re-row"><span class="re-label">${t('income')}</span><span class="${delta >= 0 ? 'money-plus' : 'money-minus'}">${delta >= 0 ? '+' : ''}$${delta}</span></div>`;
     el.classList.remove('hidden');
   }
   hideRoundEnd() { this.el.roundEnd.classList.add('hidden'); }
   showDeathPanel(victim, attacker, def, hs) {
     const el = this.el.deathInfo;
     const killer = attacker && attacker !== victim ? attacker : null;
-    el.innerHTML = `<div class="di-title">${killer ? `Killed by <b class="kf-${killer.team}">${killer.name}</b>` : 'You died'}</div>
-      <div class="di-sub">${def ? def.name : ''}${hs ? ' · headshot' : ''}${killer ? ` · ${killer.hp} HP left` : ''}</div>
-      <div class="di-stats"><span>Damage given: <b>${victim.roundDmgGiven}</b> in ${victim.roundHitsGiven} hits</span><span>Damage taken: <b>${victim.roundDmgTaken}</b> in ${victim.roundHitsTaken} hits</span></div>`;
+    el.innerHTML = `<div class="di-title">${killer ? `${t('killedBy')} <b class="kf-${killer.team}">${killer.name}</b>` : t('youDied')}</div>
+      <div class="di-sub">${def ? def.name : ''}${hs ? ' · ' + t('headshot') : ''}${killer ? ` · ${killer.hp} ${t('hpLeft')}` : ''}</div>
+      <div class="di-stats"><span>${t('dmgGiven')}: <b>${victim.roundDmgGiven}</b> ${t('inHits', { n: victim.roundHitsGiven })}</span><span>${t('dmgTaken')}: <b>${victim.roundDmgTaken}</b> ${t('inHits', { n: victim.roundHitsTaken })}</span></div>`;
     el.classList.remove('hidden');
     clearTimeout(this.deathTimer);
     this.deathTimer = setTimeout(() => el.classList.add('hidden'), 7000);
@@ -189,7 +191,7 @@ export class HUD {
   toggleFullmap(v) {
     this.fullmapOpen = v === undefined ? !this.fullmapOpen : v;
     this.el.fullmap.classList.toggle('hidden', !this.fullmapOpen);
-    if (this.fullmapOpen) this.drawFullmap();
+    if (this.fullmapOpen) { this.drawFullmap(); this.el.fullmap.querySelector('.fullmap-hint').textContent = t('mapClose'); }
   }
   drawFullmap() {
     const g = this.game, cv = this.el.fullmapCanvas, ctx = cv.getContext('2d');
@@ -218,6 +220,7 @@ export class HUD {
     for (const r of g.map.regions) if (!/site/.test(r.name)) ctx.fillText(r.name, (r.x0 + r.x1 + 1) / 2 * S, (r.z0 + r.z1 + 1) / 2 * S);
     ctx.restore();
   }
+  prompt(text) { if (this.lastText.prompt !== text) { this.lastText.prompt = text; this.el.promptEl.textContent = text; this.el.promptEl.style.opacity = text ? 1 : 0; } }
   moneyPopup(delta) {
     const el = document.createElement('div'); el.className = 'money-pop-item ' + (delta > 0 ? 'money-plus' : 'money-minus');
     el.textContent = (delta > 0 ? '+' : '') + '$' + delta;
@@ -259,17 +262,17 @@ export class HUD {
   }
   killfeedClear() { this.el.killfeed.innerHTML = ''; }
   onPlayerDeath(attacker, def, hs, _wall) {
-    const who = attacker && attacker !== this.game.player ? `Killed by ${attacker.name} (${def ? def.name : '?'})${hs ? ' — headshot' : ''}` : 'You died';
-    this.announce('YOU ARE DEAD', 3, who + ' — click to cycle spectator targets', 'lose');
+    const who = attacker && attacker !== this.game.player ? `${t('killedBy')} ${attacker.name} (${def ? def.name : '?'})${hs ? ' — ' + t('headshot') : ''}` : t('youDied');
+    this.announce(t('youDead'), 3, who + ' — ' + t('cycleSpec'), 'lose');
   }
   roundStart() { this.closeBuy(); this.vignette = 0; this.lastMoney = this.game.player.money; this.el.moneyPop.innerHTML = ''; }
   showScoreboard(v) { this.el.score.classList.toggle('hidden', !v); if (v) this.renderScoreboard(); }
   renderScoreboard() {
     const g = this.game, sb = g.scoreboard();
-    const team = (t, rows) => `<div class="sb-team sb-${t}"><div class="sb-head"><span>${t === 'CT' ? 'Counter-Terrorists' : 'Terrorists'}</span><span class="sb-score">${g.score[t]}</span></div>
-      <table><tr><th>Player</th><th>K</th><th>D</th><th>DMG</th><th>★</th><th>$</th></tr>
+    const team = (tm, rows) => `<div class="sb-team sb-${tm}"><div class="sb-head"><span>${tm === 'CT' ? t('sbTeamCT') : t('sbTeamT')}</span><span class="sb-score">${g.score[tm]}</span></div>
+      <table><tr><th>${t('sbPlayer')}</th><th>K</th><th>D</th><th>DMG</th><th>★</th><th>$</th></tr>
       ${rows.map(e => `<tr class="${e.alive ? '' : 'dead'} ${e.isPlayer ? 'me' : ''}"><td>${e.name}${e.hasBomb ? ' 💣' : ''}${e.kit ? ' 🧰' : ''}</td><td>${e.kills}</td><td>${e.deaths}</td><td>${e.damage}</td><td>${e.mvp || ''}</td><td>${e.team === g.player.team ? '$' + e.money : '—'}</td></tr>`).join('')}</table></div>`;
-    this.el.score.innerHTML = `<div class="sb-title">${g.map.name} — ${g.phase === 'dm' ? 'Deathmatch' : `Round ${g.round} — first to ${g.target}`}</div><div class="sb-cols">${team('CT', sb.CT)}${team('T', sb.T)}</div>
+    this.el.score.innerHTML = `<div class="sb-title">${g.map.name} — ${g.phase === 'dm' ? t('dmLabel') : `${t('round')} ${g.round} — ${t('sbFirstTo', { n: g.target })}`}</div><div class="sb-cols">${team('CT', sb.CT)}${team('T', sb.T)}</div>
       <div class="sb-log">${g.roundLog.slice(-12).map(r => `<span class="rl-${r.winner}" title="${r.reason}">${r.round}</span>`).join('')}</div>`;
   }
   showMatchEnd(g) {
@@ -278,11 +281,11 @@ export class HUD {
     el.classList.remove('hidden');
     const me = g.player;
     const rows = g.entities.slice().sort((a, b) => b.kills - a.kills);
-    el.innerHTML = `<div class="me-card"><h1 class="${r.playerWon ? 'win' : 'lose'}">${r.playerWon ? 'VICTORY' : 'DEFEAT'}</h1>
+    el.innerHTML = `<div class="me-card"><h1 class="${r.playerWon ? 'win' : 'lose'}">${r.playerWon ? t('victory') : t('defeat')}</h1>
       <div class="me-score"><span class="ct">CT ${r.score.CT}</span> : <span class="t">${r.score.T} T</span></div>
-      <div class="me-stats">You: ${me.kills} kills / ${me.deaths} deaths — ${me.damage} damage</div>
+      <div class="me-stats">${t('youStats', { k: me.kills, d: me.deaths, dmg: me.damage })}</div>
       <table>${rows.map(e => `<tr class="${e.isPlayer ? 'me' : ''}"><td class="kf-${e.team}">${e.name}</td><td>${e.kills}</td><td>${e.deaths}</td><td>${e.damage}</td></tr>`).join('')}</table>
-      <button id="me-menu">Back to menu</button></div>`;
+      <button id="me-menu">${t('backMenu')}</button></div>`;
     el.querySelector('#me-menu').onclick = () => { el.classList.add('hidden'); document.dispatchEvent(new CustomEvent('backToMenu')); };
   }
 
@@ -305,22 +308,23 @@ export class HUD {
       else el.ammoMag.parentElement.style.display = 'none';
     }
     // timer
-    let t = g.timer;
+    let tm = g.timer;
     let cls = '';
     if (g.phase === 'freeze') cls = 'freeze';
     if (g.phase === 'planted') cls = 'planted';
-    if (g.phase === 'end') t = 0;
-    this.setText('timer', el.timer, g.phase === 'planted' ? '💣' : fmtTime(t));
+    if (g.phase === 'end') tm = 0;
+    this.setText('timer', el.timer, g.phase === 'planted' ? '💣' : fmtTime(tm));
     el.timerBox.className = cls;
     if (g.phase === 'dm') {
       const k = team => g.entities.filter(e => e.team === team).reduce((a, e) => a + e.kills, 0);
-      this.setText('round', el.roundNum, 'Deathmatch');
+      this.setText('round', el.roundNum, t('dmLabel'));
       this.setText('sT', el.scoreT, k('T')); this.setText('sCT', el.scoreCT, k('CT'));
       const leader = g.entities.slice().sort((a, b) => b.kills - a.kills)[0];
       this.setText('aT', el.aliveT, p.kills); this.setText('aCT', el.aliveCT, leader ? leader.kills : 0);
-      el.aliveCT.parentElement.querySelector('.vs').textContent = 'you / leader';
+      el.aliveCT.parentElement.querySelector('.vs').textContent = t('youLeader');
     } else {
-      this.setText('round', el.roundNum, `Round ${g.round}`);
+      this.setText('round', el.roundNum, `${t('round')} ${g.round}`);
+      el.aliveCT.parentElement.querySelector('.vs').textContent = t('alive');
       this.setText('sT', el.scoreT, g.score.T); this.setText('sCT', el.scoreCT, g.score.CT);
       this.setText('aT', el.aliveT, g.aliveCount('T')); this.setText('aCT', el.aliveCT, g.aliveCount('CT'));
     }
@@ -363,8 +367,8 @@ export class HUD {
     // spectating
     const c = g.controller;
     if (!p.alive) {
-      const t = c.specTarget;
-      this.setText('spec', el.spec, t ? `Spectating ${t.name} — ${t.current ? t.current.def.name : ''} — ${t.hp} HP` : 'Free camera — WASD to fly, click to follow a teammate');
+      const st = c.specTarget;
+      this.setText('spec', el.spec, st ? `${t('spectating')} ${st.name} — ${st.current ? st.current.def.name : ''} — ${st.hp} HP` : t('freeCam'));
       el.spec.style.opacity = 1;
     } else el.spec.style.opacity = 0;
     el.deathPanel.classList.toggle('hidden', p.alive);

@@ -11,6 +11,7 @@ import { createHumanoid, animateHumanoid } from './entities.js';
 import { buildWeaponModel } from './viewmodel.js';
 import { GrenadeManager } from './grenades.js';
 import { BotAI, TeamPlan } from './bots.js';
+import { t } from './i18n.js';
 
 const rad = d => d * Math.PI / 180;
 const throughWallKill = () => false;
@@ -122,7 +123,7 @@ export class Game {
     for (const e of this.entities) { e.money = 16000; e.alive = false; this.respawn(e); }
     this.viewModel.setWeapon(this.player.current.def, this.player.team);
     this.audio.play('round_start');
-    this.hud.announce('DEATHMATCH', 3, 'Most kills in 10 minutes wins. Buy anywhere with B.');
+    this.hud.announce(t('deathmatch'), 3, t('dmSub'));
     this.hud.setBuyAllowed(true);
     this.hud.roundStart();
   }
@@ -211,11 +212,11 @@ export class Game {
     this.audio.play('round_start');
     this.hud.hideDeathPanel(); this.hud.hideRoundEnd();
     // round-start callouts
-    if (carrier && carrier.bot && Math.random() < 0.8) this.chat(carrier, `Let's go ${carrier.bot.site}`);
+    if (carrier && carrier.bot && Math.random() < 0.8) this.chat(carrier, t('cLetsGo', { s: carrier.bot.site }));
     const ctTalker = this.entities.find(e => e.bot && e.team === 'CT');
-    if (ctTalker && Math.random() < 0.6) this.chat(ctTalker, `I'll hold ${ctTalker.bot.site}`);
-    const half = this.round === this.matchCfg.half + 1 ? ' — Second half' : '';
-    this.hud.announce(`Round ${this.round}${half}`, 3, this.player.hasBomb ? 'You carry the bomb. Press B to buy.' : 'Press B to buy equipment');
+    if (ctTalker && Math.random() < 0.6) this.chat(ctTalker, t('cHold', { s: ctTalker.bot.site }));
+    const half = this.round === this.matchCfg.half + 1 ? t('secondHalf') : '';
+    this.hud.announce(`${t('round')} ${this.round}${half}`, 3, this.player.hasBomb ? t('carryBomb') : t('pressB'));
     this.hud.setBuyAllowed(true);
     this.hud.roundStart();
   }
@@ -275,7 +276,8 @@ export class Game {
     this.grenades.update(dt);
     this.updateBomb(dt);
     this.updatePickups();
-    for (const e of this.entities) if (e.model) animateHumanoid(e, dt);
+    for (const e of this.entities) if (e.model) { animateHumanoid(e, dt); e.model.userData.tag.visible = e.alive && e.team === this.player.team; }
+    this.updatePrompts();
     // bomb LED blink
     if (this.bomb.planted) { this.bombLed.visible = (this.now * 4 | 0) % 2 === 0; }
     this.audio.setListener(this.camera.position.x, this.camera.position.y, this.camera.position.z, this.camera.rotation.y);
@@ -285,20 +287,20 @@ export class Game {
     switch (this.phase) {
       case 'freeze':
         this.timer -= dt;
-        if (this.timer <= 0) { this.phase = 'live'; this.timer = ROUND.live; this.hud.announce('GO!', 1.2); }
+        if (this.timer <= 0) { this.phase = 'live'; this.timer = ROUND.live; this.hud.announce(t('go'), 1.2); }
         break;
       case 'live': {
         this.timer -= dt;
         const tAlive = this.aliveCount('T'), cAlive = this.aliveCount('CT');
         if (this.timer <= ROUND.live - ROUND.buyTime) this.hud.setBuyAllowed(false);
-        if (tAlive === 0) this.endRound('CT', 'Counter-Terrorists win — Terrorists eliminated');
-        else if (cAlive === 0) this.endRound('T', 'Terrorists win — Counter-Terrorists eliminated');
-        else if (this.timer <= 0) this.endRound('CT', 'Counter-Terrorists win — Time ran out');
+        if (tAlive === 0) this.endRound('CT', t('ctWinElim'), 'elim');
+        else if (cAlive === 0) this.endRound('T', t('tWinElim'), 'elim');
+        else if (this.timer <= 0) this.endRound('CT', t('ctWinTime'), 'time');
         break;
       }
       case 'planted': {
         this.timer = this.bomb.explodeAt - this.now;
-        if (this.aliveCount('CT') === 0) this.endRound('T', 'Terrorists win — Counter-Terrorists eliminated');
+        if (this.aliveCount('CT') === 0) this.endRound('T', t('tWinElim'), 'elim');
         else if (this.now >= this.bomb.explodeAt) this.explodeBomb();
         break;
       }
@@ -324,13 +326,13 @@ export class Game {
   inspect() { this.viewModel.swap = 0.6; }
 
   // ---------------- rounds & economy
-  endRound(winner, reason) {
+  endRound(winner, reason, kind = '') {
     if (this.phase === 'end' || this.phase === 'matchend') return;
     const loser = winner === 'T' ? 'CT' : 'T';
     this.phase = 'end'; this.timer = ROUND.end;
     this.score[winner]++;
     const planted = this.bomb.planted;
-    const byBomb = /exploded|defused/.test(reason);
+    const byBomb = kind === 'bombed' || kind === 'defused';
     for (const e of this.entities) {
       if (e.team === winner) e.money += byBomb ? ECON.winBomb : ECON.win;
       else {
@@ -348,8 +350,8 @@ export class Game {
     // MVP: planter/defuser on objective wins, else most kills on the winning team
     let mvp = null, mvpWhy = '';
     const winners = this.entities.filter(e => e.team === winner);
-    if (/bombed/.test(reason) && this.bomb.planter) { mvp = this.bomb.planter; mvpWhy = 'planting the bomb'; }
-    else if (/defused/.test(reason) && this.bomb.defusedBy) { mvp = this.bomb.defusedBy; mvpWhy = 'defusing the bomb'; }
+    if (kind === 'bombed' && this.bomb.planter) { mvp = this.bomb.planter; mvpWhy = 'planting the bomb'; }
+    else if (kind === 'defused' && this.bomb.defusedBy) { mvp = this.bomb.defusedBy; mvpWhy = 'defusing the bomb'; }
     else { winners.sort((a, b) => b.roundKills - a.roundKills || b.roundDmgGiven - a.roundDmgGiven); if (winners[0] && winners[0].roundKills > 0) { mvp = winners[0]; mvpWhy = `${mvp.roundKills} kill${mvp.roundKills > 1 ? 's' : ''}`; } }
     if (mvp) mvp.mvp++;
     this.hud.showRoundEnd({ won: playerWon, reason, mvp, mvpWhy, moneyDelta: this.player.money - this.player.roundMoneyStart, player: this.player });
@@ -370,7 +372,7 @@ export class Game {
       // overtime: MR3
       this.target += MATCH.otRounds;
       for (const e of this.entities) e.money = 10000;
-      this.hud.announce('OVERTIME', 3, `First to ${this.target}`);
+      this.hud.announce(t('overtime'), 3, t('firstTo', { n: this.target }));
     }
     if (this.round === this.matchCfg.half) this.swapSides();
     this.startRound();
@@ -386,7 +388,7 @@ export class Game {
     this.lossStreak = { T: 0, CT: 0 };
     this.half = 2;
     this.tPlan = new TeamPlan(this, 'T'); this.ctPlan = new TeamPlan(this, 'CT');
-    this.hud.announce('HALFTIME — Switching sides', 3);
+    this.hud.announce(t('halftime'), 3);
   }
 
   matchEnd(winner) {
@@ -407,15 +409,15 @@ export class Game {
   }
 
   buy(e, id) {
-    if (!e.alive || !this.canBuy(e)) return { ok: false, msg: 'Cannot buy now' };
+    if (!e.alive || !this.canBuy(e)) return { ok: false, msg: t('notNow') };
     if (GEAR[id]) {
       const g = GEAR[id];
-      if (g.teams && g.teams !== e.team) return { ok: false, msg: 'Not available for your team' };
+      if (g.teams && g.teams !== e.team) return { ok: false, msg: t('notTeam') };
       let price = g.price;
-      if (id === 'kevlar') { if (e.armor >= 100) return { ok: false, msg: 'Already have armor' }; }
-      if (id === 'helmet') { if (e.helmet && e.armor >= 100) return { ok: false, msg: 'Already have helmet' }; if (e.armor >= 100) price = 350; }
-      if (id === 'kit') { if (e.kit) return { ok: false, msg: 'Already have a kit' }; }
-      if (e.money < price) return { ok: false, msg: 'Not enough money' };
+      if (id === 'kevlar') { if (e.armor >= 100) return { ok: false, msg: t('haveArmor') }; }
+      if (id === 'helmet') { if (e.helmet && e.armor >= 100) return { ok: false, msg: t('haveHelmet') }; if (e.armor >= 100) price = 350; }
+      if (id === 'kit') { if (e.kit) return { ok: false, msg: t('haveKit') }; }
+      if (e.money < price) return { ok: false, msg: t('noMoney') };
       e.money -= price;
       if (id === 'kevlar') e.armor = 100;
       if (id === 'helmet') { e.armor = 100; e.helmet = true; }
@@ -425,17 +427,17 @@ export class Game {
     }
     const def = WEAPONS[id];
     if (!def) return { ok: false };
-    if (def.teams !== 'both' && def.teams !== e.team) return { ok: false, msg: 'Not available for your team' };
-    if (e.money < def.price) return { ok: false, msg: 'Not enough money' };
+    if (def.teams !== 'both' && def.teams !== e.team) return { ok: false, msg: t('notTeam') };
+    if (e.money < def.price) return { ok: false, msg: t('noMoney') };
     if (def.slot === 4) {
       const have = e.weapons[4].filter(w => w.def.id === id).length;
-      if (have >= def.max) return { ok: false, msg: 'Already carrying max' };
-      if (e.weapons[4].length >= 4) return { ok: false, msg: 'Grenade slots full' };
+      if (have >= def.max) return { ok: false, msg: t('maxNade') };
+      if (e.weapons[4].length >= 4) return { ok: false, msg: t('nadeFull') };
       e.money -= def.price;
       e.weapons[4].push(makeWeapon(id));
     } else {
       const old = e.weapons[def.slot];
-      if (old && old.def.id === id) return { ok: false, msg: 'Already own this weapon' };
+      if (old && old.def.id === id) return { ok: false, msg: t('ownWeapon') };
       e.money -= def.price;
       if (old) this.dropToGround(e, old);
       const w = makeWeapon(id);
@@ -546,7 +548,7 @@ export class Game {
       const b = this.bomb;
       if (b.dropped && !b.carrier && e.team === 'T' && Math.hypot(b.dropped.x - e.pos.x, b.dropped.z - e.pos.z) < 1.2) {
         b.carrier = e; e.hasBomb = true; b.dropped = null; this.bombMesh.visible = false;
-        if (e.isPlayer) { this.audio.play('pickup'); this.hud.announce('You picked up the bomb', 2); }
+        if (e.isPlayer) { this.audio.play('pickup'); this.hud.announce(t('pickedBomb'), 2); }
       }
     }
   }
@@ -557,7 +559,7 @@ export class Game {
     if (e.team === 'T' && e.hasBomb && !this.bomb.planted) {
       const cell = this.world.cellAt(e.pos.x, e.pos.z);
       if (cell && cell.zone && e.onGround) { this.plantTick(e, dt); return; }
-      else if (!e.useTipT || this.now - e.useTipT > 3) { e.useTipT = this.now; this.hud.hint('You must be inside a bomb site (A or B) to plant', 2.5); }
+      else if (!e.useTipT || this.now - e.useTipT > 3) { e.useTipT = this.now; this.hud.hint(t('plantHint'), 2.5); }
     }
     if (e.team === 'CT' && this.bomb.planted) {
       const b = this.bomb;
@@ -576,7 +578,7 @@ export class Game {
     if (this.phase !== 'live' || this.bomb.planted || !e.hasBomb) return;
     if (!e.planting) { e.planting = true; e.plantProgress = 0; this.audio.play('plant', e.isPlayer ? null : e.pos, { maxDist: 25 }); }
     e.plantProgress += dt;
-    if (e.isPlayer) this.hud.progress('Planting the bomb', e.plantProgress / ROUND.plant);
+    if (e.isPlayer) this.hud.progress(t('planting'), e.plantProgress / ROUND.plant);
     if (e.plantProgress >= ROUND.plant) this.plantBomb(e);
   }
 
@@ -589,8 +591,8 @@ export class Game {
     e.hasBomb = false; e.planting = false; e.money = Math.min(ECON.max, e.money + ECON.plant);
     this.bombMesh.position.set(b.pos.x, b.pos.y, b.pos.z); this.bombMesh.rotation.y = e.yaw; this.bombMesh.visible = true;
     this.phase = 'planted'; this.timer = ROUND.bomb;
-    this.hud.announce('The bomb has been planted', 3, `Site ${b.site} — 40 seconds`);
-    if (e.bot) this.chat(e, `Bomb planted at ${b.site}`);
+    this.hud.announce(t('bombPlanted'), 3, t('siteSeconds', { s: b.site }));
+    if (e.bot) this.chat(e, t('cPlanted', { s: b.site }));
     this.hud.setBuyAllowed(false);
     for (const o of this.entities) if (o.bot) o.bot.onBombPlanted();
   }
@@ -603,14 +605,14 @@ export class Game {
     b.defusingBy = e;
     e.defuseProgress += dt;
     const total = e.kit ? ROUND.defuseKit : ROUND.defuse;
-    if (e.isPlayer) this.hud.progress(e.kit ? 'Defusing (kit)' : 'Defusing the bomb', e.defuseProgress / total);
+    if (e.isPlayer) this.hud.progress(e.kit ? t('defusingKit') : t('defusing'), e.defuseProgress / total);
     if (e.defuseProgress >= total) {
       e.defusing = false;
       this.audio.play('defused');
       this.bomb.planted = false; this.bombMesh.visible = false; this.bomb.defusedBy = e;
       e.money = Math.min(ECON.max, e.money + 300);
-      if (e.bot) this.chat(e, 'Bomb defused!');
-      this.endRound('CT', 'Counter-Terrorists win — Bomb defused');
+      if (e.bot) this.chat(e, t('cDefused'));
+      this.endRound('CT', t('ctWinDefuse'), 'defused');
     }
   }
 
@@ -644,7 +646,7 @@ export class Game {
     }
     this.bombMesh.visible = false;
     this.bomb.planted = false;
-    this.endRound('T', 'Terrorists win — Target bombed');
+    this.endRound('T', t('tWinBomb'), 'bombed');
   }
 
   throwGrenade(e, underhand = false) {
@@ -854,19 +856,19 @@ export class Game {
     if (attacker && attacker !== victim && attacker.team !== victim.team) {
       attacker.kills++; attacker.roundKills++;
       attacker.money = Math.min(ECON.max, attacker.money + (def.kill ?? 300));
-      if (attacker.bot && Math.random() < 0.25) this.chat(attacker, hs ? 'Headshot! Enemy down' : 'Enemy down');
+      if (attacker.bot && Math.random() < 0.25) this.chat(attacker, hs ? t('cHsDown') : t('cEnemyDown'));
     } else if (attacker === victim) victim.money = Math.max(0, victim.money - 300);
     this.hud.killfeed(attacker, victim, def, hs);
     if (this.phase === 'dm') victim.respawnAt = this.now + 3;
     // a teammate reports the death
     if (Math.random() < 0.35) {
       const mates = this.entities.filter(o => o.bot && o.alive && o.team === victim.team && o !== victim);
-      if (mates.length) this.chat(mates[Math.floor(Math.random() * mates.length)], `${victim.isPlayer ? 'Player' : victim.name} is down at ${this.map.regionName(victim.pos.x, victim.pos.z)}`);
+      if (mates.length) this.chat(mates[Math.floor(Math.random() * mates.length)], t('cDownAt', { n: victim.name, r: this.map.regionName(victim.pos.x, victim.pos.z) }));
     }
     if (victim.hasBomb) {
       victim.hasBomb = false; this.bomb.carrier = null;
       this.bomb.dropped = { x: victim.pos.x, y: this.world.floorAt(victim.pos.x, victim.pos.z), z: victim.pos.z };
-      if (victim.isPlayer || this.player.team === 'T') this.hud.announce('The bomb has been dropped', 2);
+      if (victim.isPlayer || this.player.team === 'T') this.hud.announce(t('bombDropped'), 2);
     }
     if (victim.weapons[1]) this.dropToGround(victim, victim.weapons[1]);
     if (victim.isPlayer) { this.controller.onDeath(); this.hud.onPlayerDeath(attacker, def, hs, throughWallKill(def)); this.hud.showDeathPanel(victim, attacker, def, hs); }
@@ -901,6 +903,15 @@ export class Game {
     }
   }
 
+  // Contextual "press E" prompts for the player.
+  updatePrompts() {
+    const e = this.player; if (!e.alive || !this.isLive()) { this.hud.prompt(''); return; }
+    if (e.team === 'T' && e.hasBomb && !this.bomb.planted) { const c = this.world.cellAt(e.pos.x, e.pos.z); if (c && c.zone) { this.hud.prompt(t('plantPrompt')); return; } }
+    if (e.team === 'CT' && this.bomb.planted) { const b = this.bomb; if (Math.hypot(b.pos.x - e.pos.x, b.pos.z - e.pos.z) < 1.5) { this.hud.prompt(t('defusePrompt')); return; } }
+    for (const p of this.pickups) if (Math.hypot(p.pos.x - e.pos.x, p.pos.z - e.pos.z) < 1.6 && e.weapons[p.w.def.slot]) { this.hud.prompt(t('pickup', { w: p.w.def.name })); return; }
+    this.hud.prompt('');
+  }
+
   // Team chat / radio
   chat(e, text) {
     if (!e || !text) return;
@@ -916,23 +927,23 @@ export class Game {
     if (!this.isLive() && this.phase !== 'freeze') return;
     const mates = this.entities.filter(o => o.bot && o.alive && o.team === p.team);
     if (cmd === 'A' || cmd === 'B') {
-      this.chat(p, p.team === 'T' ? `Everyone go ${cmd}!` : `Rotate to ${cmd}!`);
+      this.chat(p, p.team === 'T' ? t('cGoAll', { s: cmd }) : t('cRotate', { s: cmd }));
       if (p.team === 'T') this.tPlan.site = cmd;
       for (const m of mates) {
         const b = m.bot;
         if (b.state === 'plant' || b.state === 'defuse' || (b.target && b.target.alive)) continue;
         b.site = cmd; b.arrived = false; b.investigateUntil = 0; b.investigating = false; b.lateMove = true;
         b.planObjective();
-        if (Math.random() < 0.5) setTimeout(() => this.chat(m, Math.random() < 0.5 ? 'Roger that' : `Moving to ${cmd}`), 300 + Math.random() * 1200);
+        if (Math.random() < 0.5) setTimeout(() => this.chat(m, Math.random() < 0.5 ? t('cRoger') : t('cMoving', { s: cmd })), 300 + Math.random() * 1200);
       }
     } else if (cmd === 'hold') {
-      this.chat(p, 'Hold your positions');
+      this.chat(p, t('cHoldPos'));
       for (const m of mates) { const b = m.bot; if (b.state === 'plant' || b.state === 'defuse') continue; b.path = null; b.arrived = true; b.lateMove = true; b.holdAt(m.pos.x, m.pos.z); }
     } else if (cmd === 'follow') {
-      this.chat(p, 'Follow me');
+      this.chat(p, t('cFollow'));
       for (const m of mates) { const b = m.bot; if (b.state === 'plant' || b.state === 'defuse') continue; b.lateMove = true; b.state = 'rush'; b.setGoal(p.pos.x, p.pos.z); b.arrivedAction = () => b.holdAt(m.pos.x, m.pos.z); }
     } else if (cmd === 'report') {
-      for (const m of mates) if (Math.random() < 0.7) setTimeout(() => this.chat(m, m.bot.target ? `Contact at ${this.map.regionName(m.pos.x, m.pos.z)}` : `${this.map.regionName(m.pos.x, m.pos.z)} is clear`), 200 + Math.random() * 1500);
+      for (const m of mates) if (Math.random() < 0.7) setTimeout(() => this.chat(m, m.bot.target ? t('cContact', { r: this.map.regionName(m.pos.x, m.pos.z) }) : t('cClear', { r: this.map.regionName(m.pos.x, m.pos.z) })), 200 + Math.random() * 1500);
     }
   }
 

@@ -1,6 +1,7 @@
 // Bot AI: perception, navigation, combat and objective logic for both sides.
 import { DIFFICULTY, ROUND } from './config.js';
 import { weaponSpeed } from './weapons.js';
+import { t } from './i18n.js';
 
 const rad = d => d * Math.PI / 180;
 const deg = r => r * 180 / Math.PI;
@@ -206,7 +207,7 @@ export class BotAI {
     if (best) {
       if (this.target !== best) {
         const switching = !!this.target;
-        if (!switching && now - e.lastCallout > 12 && Math.random() < 0.6) g.chat(e, `Enemy spotted at ${g.map.regionName(best.pos.x, best.pos.z)}`);
+        if (!switching && now - e.lastCallout > 12 && Math.random() < 0.6) g.chat(e, t('cEnemyAt', { r: g.map.regionName(best.pos.x, best.pos.z) }));
         this.target = best;
         this.firstSeenT = now;
         const r = this.diff.reaction * (0.6 + Math.random() * 0.8) / this.skill;
