@@ -137,6 +137,11 @@ export class PlayerController {
       if (!m2) this.altPress = false;
     }
     if (inp.pressed('KeyF')) g.inspect();
+    if (inp.pressed('KeyZ')) g.radio('A');
+    if (inp.pressed('KeyX')) g.radio('B');
+    if (inp.pressed('KeyV')) g.radio('hold');
+    if (inp.pressed('KeyT')) g.radio('follow');
+    if (inp.pressed('KeyY')) g.radio('report');
 
     // --- recoil recovery
     this.recoverRecoil(e, dt);
@@ -222,4 +227,6 @@ export class PlayerController {
   }
 
   addShake(a) { this.shake = Math.max(this.shake, a); this.shakeT = 0.5; }
+  // aim punch when hit: kicks the view, recovers with the recoil decay
+  punch(deg) { const e = this.e; if (!e) return; e.recoilPitch += deg; e.recoilYaw += (Math.random() - 0.5) * deg; }
 }

@@ -12,6 +12,8 @@ const MAT = {
   glove: new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 0.9 }),
   blade: new THREE.MeshStandardMaterial({ color: 0xcfd3d8, roughness: 0.25, metalness: 0.9 }),
   glass: new THREE.MeshStandardMaterial({ color: 0x3a6a9a, roughness: 0.1, metalness: 0.8, emissive: 0x112233 }),
+  bottle: new THREE.MeshStandardMaterial({ color: 0x7fb070, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.85 }),
+  red: new THREE.MeshStandardMaterial({ color: 0x9a2a2a, roughness: 0.5, metalness: 0.3 }),
 };
 
 const box = (w, h, d, m, x = 0, y = 0, z = 0) => { const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); mesh.position.set(x, y, z); return mesh; };
@@ -83,6 +85,8 @@ export function buildWeaponModel(def, team) {
     g.add(box(0.08, 0.07, 0.14, MAT.glove, 0, -0.02, 0.04));
     g.add(box(0.09, 0.09, 0.16, sleeve, 0.01, -0.05, 0.18));
     if (def.id === 'he') { const s = new THREE.Mesh(new THREE.SphereGeometry(0.045, 14, 10), MAT.green); s.position.set(0, 0.03, -0.02); g.add(s); }
+    else if (def.id === 'molotov') { g.add(cyl(0.03, 0.12, MAT.bottle, 0, 0.03, -0.02, 0)); g.add(cyl(0.012, 0.06, MAT.bottle, 0, 0.11, -0.02, 0)); g.add(box(0.025, 0.03, 0.025, MAT.tan, 0, 0.145, -0.02)); }
+    else if (def.id === 'incendiary') { g.add(cyl(0.03, 0.12, MAT.red, 0, 0.03, -0.02, 0)); }
     else { const c = cyl(0.03, 0.11, def.id === 'flash' ? MAT.grey : MAT.green, 0, 0.03, -0.02, 0); g.add(c); }
     g.add(box(0.02, 0.02, 0.03, MAT.grey, 0, 0.085, -0.02));
     g.userData.muzzle = new THREE.Vector3(0, 0, -0.1);

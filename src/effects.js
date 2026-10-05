@@ -140,6 +140,44 @@ export class Effects {
     return g;
   }
 
+  // Fire area: returns a group with animated flame sprites; caller removes it.
+  fire(x, y, z, radius, dur) {
+    const g = new THREE.Group();
+    g.position.set(x, y, z);
+    const flames = [];
+    const mat = new THREE.SpriteMaterial({ map: this.flashTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xff7a1a });
+    for (let i = 0; i < 26; i++) {
+      const s = new THREE.Sprite(mat.clone());
+      const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * radius * 0.9;
+      s.position.set(Math.cos(a) * r, 0.3, Math.sin(a) * r);
+      s.userData = { phase: Math.random() * 6, size: 0.5 + Math.random() * 0.6, hue: Math.random() };
+      s.material.color.setHSL(0.03 + s.userData.hue * 0.07, 1, 0.55);
+      g.add(s); flames.push(s);
+    }
+    const light = new THREE.PointLight(0xff8a30, 25, radius * 4, 1.5);
+    light.position.y = 1; g.add(light);
+    this.add(g, dur, (k, o, dt) => {
+      const t = k * dur;
+      const fade = t > dur - 1.5 ? (dur - t) / 1.5 : Math.min(1, t * 2);
+      for (const f of flames) {
+        f.userData.phase += dt * 9;
+        const p = f.userData.phase;
+        const sc = f.userData.size * fade * (0.8 + 0.3 * Math.sin(p) + 0.15 * Math.sin(p * 2.7));
+        f.scale.set(sc, sc * 1.6, sc);
+        f.position.y = 0.25 + 0.25 * (0.5 + 0.5 * Math.sin(p * 1.3)) * fade;
+        f.material.opacity = 0.85 * fade;
+      }
+      light.intensity = 25 * fade * (0.85 + 0.15 * Math.sin(t * 20));
+      if (Math.random() < dt * 14 * fade) {
+        const sm = new THREE.Sprite(this.puffMat.clone());
+        sm.material.color.setHex(0x222222);
+        sm.position.set(x + (Math.random() - 0.5) * radius, y + 0.8, z + (Math.random() - 0.5) * radius);
+        this.add(sm, 1.8, (kk, oo, d2) => { oo.position.y += 1.6 * d2; const sz = 0.6 + kk * 1.8; oo.scale.set(sz, sz, sz); oo.material.opacity = 0.5 * (1 - kk); }, oo => oo.material.dispose());
+      }
+    }, o => { for (const f of flames) f.material.dispose(); });
+    return g;
+  }
+
   update(dt, now) {
     this.now = now;
     for (let i = this.items.length - 1; i >= 0; i--) {
@@ -151,6 +189,11 @@ export class Effects {
         this.items.splice(i, 1);
       } else it.update(k, it.obj, dt);
     }
+  }
+
+  remove(obj) {
+    const i = this.items.findIndex(it => it.obj === obj);
+    if (i >= 0) { const it = this.items[i]; this.scene.remove(it.obj); if (it.onEnd) it.onEnd(it.obj); this.items.splice(i, 1); }
   }
 
   clearRound() {

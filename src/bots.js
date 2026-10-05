@@ -32,7 +32,7 @@ export class BotAI {
     this.stuckT = 0; this.lastPos = { x: this.e.pos.x, z: this.e.pos.z }; this.stuckCheckT = 0;
     this.repathT = 0; this.replanT = 0;
     this.e.crouch = false; this.e.walking = false;
-    this.rotateT = 0; this.throwPlan = null; this.nadeCooldown = 0;
+    this.rotateT = 0; this.throwPlan = null; this.nadeCooldown = 0; this.fleeUntil = 0; this.prevGoal = null;
     this.lateMove = false; this.investigating = false; this.pickupCheckT = 0;
   }
 
@@ -57,10 +57,25 @@ export class BotAI {
     const d = Math.hypot(shooter.pos.x - this.e.pos.x, shooter.pos.z - this.e.pos.z);
     if (d > 40) return;
     this.lastKnown = { x: shooter.pos.x, z: shooter.pos.z };
-    if (this.investigateUntil < now && Math.random() < (this.state === 'hold' ? 0.5 : 0.25)) {
+    if (this.investigateUntil < now && Math.random() < (this.state === 'roam' ? 0.8 : this.state === 'hold' ? 0.5 : 0.25)) {
       this.investigateUntil = now + 5 + Math.random() * 4;
     }
     if (d < 18 && this.state !== 'plant' && this.state !== 'defuse') this.lookAt(shooter.pos.x, shooter.pos.y + 1.3, shooter.pos.z);
+  }
+
+  onBurning(f) {
+    const g = this.game, e = this.e;
+    if (this.fleeUntil > g.now) return;
+    // run out of the fire: pick the nearest walkable cell outside the radius, away from the center
+    const dx = e.pos.x - f.x, dz = e.pos.z - f.z, d = Math.max(0.2, Math.hypot(dx, dz));
+    const tx = f.x + dx / d * (f.r + 2.5), tz = f.z + dz / d * (f.r + 2.5);
+    const p = g.nav.randomWalkableNear(tx, tz, 2);
+    this.prevGoal = this.goal && !this.arrived ? { ...this.goal } : null;
+    this.prevArrivedAction = this.arrivedAction;
+    this.setGoal(p.x, p.z);
+    this.fleeUntil = g.now + 2.5;
+    this.arrivedAction = () => { if (this.prevGoal) { this.setGoal(this.prevGoal.x, this.prevGoal.z); this.arrivedAction = this.prevArrivedAction; } else this.planObjective(); };
+    e.planting = false; e.defusing = false;
   }
 
   onRoundStart() {
@@ -77,6 +92,18 @@ export class BotAI {
   planObjective() {
     const g = this.game, e = this.e;
     const map = g.map;
+    if (g.phase === 'dm') {
+      // deathmatch: roam between landmarks hunting for fights
+      const keys = Object.keys(map.landmarks);
+      // bias toward the busy middle of the map, or toward the last enemy we knew about
+      let h;
+      if (this.lastKnown && Math.random() < 0.5) h = g.nav.randomWalkableNear(this.lastKnown.x, this.lastKnown.z, 6), h = { x: h.x - 0.5, z: h.z - 0.5 };
+      else h = pick(map.landmarks[Math.random() < 0.5 ? 'MID' : pick(keys)].holds);
+      this.state = 'roam';
+      this.setGoal(h.x + 0.5, h.z + 0.5);
+      this.arrivedAction = () => { this.state = 'roam'; this.holdPos = null; this.roamWait = g.now + 1 + Math.random() * 3; };
+      return;
+    }
     if (e.team === 'T') {
       if (g.bomb.planted) {
         this.site = g.bomb.site;
@@ -179,6 +206,7 @@ export class BotAI {
     if (best) {
       if (this.target !== best) {
         const switching = !!this.target;
+        if (!switching && now - e.lastCallout > 12 && Math.random() < 0.6) g.chat(e, `Enemy spotted at ${g.map.regionName(best.pos.x, best.pos.z)}`);
         this.target = best;
         this.firstSeenT = now;
         const r = this.diff.reaction * (0.6 + Math.random() * 0.8) / this.skill;
@@ -243,7 +271,7 @@ export class BotAI {
       }
       return;
     }
-    if (g.phase !== 'live' && g.phase !== 'planted') return;
+    if (!g.isLive()) return;
     if ((this.nadeCooldown || 0) > now || !e.weapons[4].length || e.reloadLock) return;
     this.nadeCheckT = (this.nadeCheckT || 0) - dt;
     if (this.nadeCheckT > 0) return;
@@ -254,14 +282,18 @@ export class BotAI {
     if (t && t.alive) {
       const d = Math.hypot(t.pos.x - e.pos.x, t.pos.z - e.pos.z);
       if (d > 9 && d < 26 && Math.random() < 0.35) {
+        const fire = have('molotov') || have('incendiary');
         if (have('he')) { choice = 'he'; target = { x: t.pos.x, z: t.pos.z }; }
+        else if (fire && Math.random() < 0.5) { choice = fire.def.id; target = { x: t.pos.x, z: t.pos.z }; }
         else if (have('flash') && Math.random() < 0.5) { choice = 'flash'; target = { x: t.pos.x, z: t.pos.z }; }
       }
     } else if ((this.state === 'rush' || this.state === 'goto' || this.state === 'retake') && this.site) {
       const site = g.bomb.planted && this.state === 'retake' ? g.bomb.pos : g.map.sites[this.site];
       const d = Math.hypot(site.x - e.pos.x, site.z - e.pos.z);
       if (d > 14 && d < 34 && Math.random() < 0.5) {
+        const fire = have('molotov') || have('incendiary');
         if (have('smoke')) { choice = 'smoke'; target = site; }
+        else if (fire && Math.random() < 0.6) { choice = fire.def.id; target = site; }
         else if (have('flash')) { choice = 'flash'; target = site; }
       }
     }
@@ -278,8 +310,14 @@ export class BotAI {
   manageWeapon() {
     const e = this.e, g = this.game, now = g.now;
     const w = e.current;
-    const p = e.weapons[1], s = e.weapons[2];
+    let p = e.weapons[1], s = e.weapons[2];
     const usable = x => x && (x.ammo > 0 || x.reserve > 0);
+    if (g.phase === 'dm' && !usable(p) && !(this.target && this.target.alive)) {
+      // deathmatch: unlimited money, so re-arm instead of wandering with a knife
+      e.weapons[1] = null; e.money = 16000;
+      g.botBuy(e); p = e.weapons[1];
+      if (s && !usable(s)) { s.ammo = s.def.mag; s.reserve = s.def.reserve; }
+    }
     let want = null;
     if (this.target && this.target.alive) {
       const d = Math.hypot(this.target.pos.x - e.pos.x, this.target.pos.z - e.pos.z);
@@ -291,10 +329,10 @@ export class BotAI {
       if (usable(p)) want = p; else if (usable(s)) want = s; else want = e.weapons[3];
       if (want && want.def.scope) want.scoped = false;
       // reload when safe
-      if (w && w.def.mag && w.ammo < w.def.mag * 0.4 && w.reserve > 0 && w.reloadEnd < now) g.startReload(e, w);
+      if (w && w.def.mag && w.ammo < w.def.mag * 0.4 && w.reserve > 0 && w.reloadEnd === 0) g.startReload(e, w);
     }
     if (want && want !== w && (!w || w.def.cat !== 'grenade' || !e.throwing)) g.selectWeapon(e, want);
-    if (w && w.def.mag && w.ammo === 0 && w.reloadEnd < now) {
+    if (w && w.def.mag && w.ammo === 0 && w.reloadEnd === 0) {
       if (w.reserve > 0) g.startReload(e, w);
     }
   }
@@ -332,14 +370,21 @@ export class BotAI {
     const knife = cat === 'melee';
     const speed = weaponSpeed(w);
     const eff = EFF_RANGE[cat] || 30;
-    const holding = this.state === 'hold' || this.state === 'defend';
-    const tooFar = d > eff * 1.25 || (d > 18 && now - this.firstSeenT > 7 && !holding && !(cat === 'rifle' || cat === 'sniper'));
-    if (knife) {
+    const dm = g.phase === 'dm';
+    const engage = dm ? Math.min(eff, 24) : eff;
+    this.engageRange = engage;
+    const holding = !dm && (this.state === 'hold' || this.state === 'defend');
+    const tooFar = d > engage * 1.25 || (d > 18 && now - this.firstSeenT > 7 && !holding && !(cat === 'rifle' || cat === 'sniper'));
+    if (this.fleeUntil > now && this.path) {
+      this.followPath(dt);
+    } else if (knife) {
       const n = Math.max(0.001, d);
       e.vel.x = dx / n * speed; e.vel.z = dz / n * speed;
     } else if (tooFar && !(holding && (cat === 'rifle' || cat === 'sniper') && d < 80)) {
-      // out of effective range: keep moving toward the objective (or toward the target)
-      if (!this.path) { if (this.goal && !this.arrived) this.setGoal(this.goal.x, this.goal.z); else this.setGoal(t.pos.x, t.pos.z); }
+      // out of effective range: close in on the target, or keep moving toward the objective
+      const chase = dm || this.state === 'roam' || this.state === 'hold' || this.state === 'defend' || !this.goal || this.arrived;
+      if (chase) { if (!this.path || now - this.repathT > 2) this.setGoal(t.pos.x, t.pos.z); }
+      else if (!this.path) this.setGoal(this.goal.x, this.goal.z);
       if (this.path) this.followPath(dt); else { e.vel.x = 0; e.vel.z = 0; }
       e.crouch = false;
     } else {
@@ -361,7 +406,9 @@ export class BotAI {
       // check movement would not walk into a wall
       const nx = e.pos.x + vx * 0.6, nz = e.pos.z + vz * 0.6;
       if (vx !== 0 || vz !== 0) { if (!g.nav.walkable(Math.floor(nx), Math.floor(nz))) { vx = 0; vz = 0; } }
-      const sp = this.strafeDir === 0 ? 0 : speed;
+      // counter-strafe: stand still while actually shooting (SMGs keep moving)
+      const shooting = e.firing && now < this.fireUntil && cat !== 'smg' && cat !== 'pistol';
+      const sp = this.strafeDir === 0 || shooting ? 0 : speed;
       e.vel.x = vx * sp; e.vel.z = vz * sp;
       e.crouch = this.diff.hsChance >= 0.3 && this.strafeDir === 0 && d > 12 && Math.random() < 0.5 ? true : (this.strafeDir === 0 ? e.crouch : false);
     }
@@ -387,17 +434,16 @@ export class BotAI {
     const w = e.current;
     if (!w || !t) { e.firing = false; return; }
     if (now < this.reactAt) { e.firing = false; return; }
-    // only fire when roughly facing the target
+    // only fire once the bot has turned onto its (imperfect) aim point
     const dx = t.pos.x - e.pos.x, dz = t.pos.z - e.pos.z;
-    const wantYaw = Math.atan2(-dx, -dz);
-    const err = Math.abs(wrapAngle(wantYaw - e.yaw));
     const d = Math.hypot(dx, dz);
-    const tol = rad(blind ? 25 : Math.max(2.5, 14 / Math.max(1, d / 4)));
+    const err = Math.abs(wrapAngle(this.desiredYaw - e.yaw)) + Math.abs(this.desiredPitch - e.pitch) * 0.5;
+    const tol = rad(blind ? 25 : 3);
     if (err > tol) { e.firing = false; return; }
     if (w.def.cat === 'melee') { e.firing = d < 2.0; return; }
     if (w.def.cat === 'grenade') { e.firing = false; return; }
-    if (d > (EFF_RANGE[w.def.cat] || 30) * 1.7) { e.firing = false; return; }
-    if (w.reloadEnd > now) { e.firing = false; return; }
+    if (d > (this.engageRange || EFF_RANGE[w.def.cat] || 30) * 1.6) { e.firing = false; return; }
+    if (w.reloadEnd > 0) { e.firing = false; return; }
     this.fireCooldown -= dt;
     if (now < this.fireUntil) {
       e.firing = true;
@@ -440,7 +486,7 @@ export class BotAI {
 
     // investigate last known enemy position
     const invDist = this.lastKnown ? Math.hypot(this.lastKnown.x - e.pos.x, this.lastKnown.z - e.pos.z) : 999;
-    if (this.investigateUntil > now && this.lastKnown && invDist < 28 && !(e.hasBomb && this.state === 'rush') && this.state !== 'plant' && this.state !== 'defuse' && this.state !== 'retake' && this.state !== 'pickup') {
+    if (this.investigateUntil > now && this.lastKnown && invDist < (g.phase === 'dm' ? 60 : 28) && !(e.hasBomb && this.state === 'rush') && this.state !== 'plant' && this.state !== 'defuse' && this.state !== 'retake' && this.state !== 'pickup') {
       if (!this.investigating) { this.investigating = true; this.prevState = this.state; this.setGoal(this.lastKnown.x, this.lastKnown.z); this.arrivedAction = () => { this.investigateUntil = 0; }; }
     } else if (this.investigating) { this.investigating = false; this.planObjective(); }
 
@@ -512,6 +558,7 @@ export class BotAI {
     } else {
       e.vel.x = 0; e.vel.z = 0;
       if (this.state === 'hold' || this.state === 'defend') this.holdBehavior(dt);
+      else if (this.state === 'roam' && now > (this.roamWait || 0)) this.planObjective();
     }
   }
 

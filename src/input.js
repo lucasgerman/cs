@@ -9,7 +9,7 @@ export class Input {
       if (e.repeat) return;
       this.keys.add(e.code); this.pressedKeys.add(e.code);
       if (this.onKey) this.onKey(e.code, e);
-      if (['Tab', 'Space', 'KeyB', 'KeyE', 'KeyQ', 'KeyR', 'KeyF', 'KeyG', 'ControlLeft', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'].includes(e.code) && this.locked) e.preventDefault();
+      if (['Tab', 'Space', 'KeyB', 'KeyE', 'KeyQ', 'KeyR', 'KeyF', 'KeyG', 'ControlLeft', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'KeyZ', 'KeyX', 'KeyV', 'KeyT', 'KeyY', 'KeyM'].includes(e.code) && this.locked) e.preventDefault();
     });
     window.addEventListener('keyup', e => { this.keys.delete(e.code); });
     window.addEventListener('blur', () => { this.keys.clear(); this.mouse = [false, false, false]; });

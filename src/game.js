@@ -4,7 +4,8 @@ import { ROUND, ECON, MATCH, PLAYER, BOT_NAMES } from './config.js';
 import { buildMapData } from './mapdata.js';
 import { World, NavGrid, rayEntity } from './physics.js';
 import { buildWorld, setupLighting } from './world.js';
-import { WEAPONS, GEAR, makeWeapon, currentSpread, damageAtRange } from './weapons.js';
+import { WEAPONS, GEAR, makeWeapon, currentSpread, damageAtRange, penetrationPower } from './weapons.js';
+import { WALL_H } from './config.js';
 import { Effects } from './effects.js';
 import { createHumanoid, animateHumanoid } from './entities.js';
 import { buildWeaponModel } from './viewmodel.js';
@@ -12,6 +13,7 @@ import { GrenadeManager } from './grenades.js';
 import { BotAI, TeamPlan } from './bots.js';
 
 const rad = d => d * Math.PI / 180;
+const throughWallKill = () => false;
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
 export class Game {
@@ -76,6 +78,7 @@ export class Game {
       planting: false, defusing: false, plantProgress: 0, defuseProgress: 0, useHeld: false,
       recoilYaw: 0, recoilPitch: 0, model: null, bot: null, showGun: true, stepDist: 0,
       lastHitBy: null, lastHitTime: -10, throwing: false,
+      roundKills: 0, roundDmgGiven: 0, roundHitsGiven: 0, roundDmgTaken: 0, roundHitsTaken: 0, roundMoneyStart: 0, respawnAt: 0, lastCallout: -10, burningUntil: 0,
     };
     if (!isPlayer) {
       e.model = createHumanoid(team, name);
@@ -102,10 +105,64 @@ export class Game {
     for (const e of this.entities) e.money = ECON.start;
     controller.attach(this.player);
     this.score = { T: 0, CT: 0 }; this.lossStreak = { T: 0, CT: 0 };
-    this.round = 0; this.target = MATCH.winRounds; this.half = 1; this.matchResult = null;
+    this.mode = s.mode || 'competitive';
+    this.matchCfg = this.mode === 'short' ? { half: 8, win: 9 } : { half: MATCH.halfRounds, win: MATCH.winRounds };
+    this.round = 0; this.target = this.matchCfg.win; this.half = 1; this.matchResult = null;
     this.roundLog = [];
-    this.hud.killfeedClear();
-    this.startRound();
+    this.hud.killfeedClear(); this.hud.chatClear();
+    if (this.mode === 'deathmatch') this.startDeathmatch(); else this.startRound();
+  }
+
+  isLive() { return this.phase === 'live' || this.phase === 'planted' || this.phase === 'dm'; }
+
+  // ---------------- deathmatch
+  startDeathmatch() {
+    this.phase = 'dm'; this.timer = this.settings.dmTime || 600; this.round = 1;
+    this.bomb = this._newBombState(); this.bombMesh.visible = false;
+    for (const e of this.entities) { e.money = 16000; e.alive = false; this.respawn(e); }
+    this.viewModel.setWeapon(this.player.current.def, this.player.team);
+    this.audio.play('round_start');
+    this.hud.announce('DEATHMATCH', 3, 'Most kills in 10 minutes wins. Buy anywhere with B.');
+    this.hud.setBuyAllowed(true);
+    this.hud.roundStart();
+  }
+
+  respawn(e) {
+    const enemies = this.entities.filter(o => o.alive && o.team !== e.team);
+    const pool = [...this.map.spawns.T, ...this.map.spawns.CT];
+    for (const k of Object.keys(this.map.landmarks)) for (const h of this.map.landmarks[k].holds) pool.push({ x: h.x + 0.5, z: h.z + 0.5 });
+    // prefer spawns a medium distance from enemies: safe, but fights come quickly
+    let best = null, bestScore = -Infinity;
+    for (let i = 0; i < 10; i++) {
+      const c = pool[Math.floor(Math.random() * pool.length)];
+      let md = Infinity;
+      for (const o of enemies) md = Math.min(md, Math.hypot(o.pos.x - c.x, o.pos.z - c.z));
+      const score = !Number.isFinite(md) ? Math.random() : md < 18 ? -100 + md : -Math.abs(md - 32) + Math.random() * 6;
+      if (score > bestScore) { bestScore = score; best = c; }
+    }
+    const p = this.nav.randomWalkableNear(best.x, best.z, 2);
+    e.pos = { x: p.x, y: this.world.floorAt(p.x, p.z), z: p.z };
+    e.vel = { x: 0, y: 0, z: 0 }; e.onGround = true;
+    e.yaw = Math.random() * Math.PI * 2; e.pitch = 0;
+    e.alive = true; e.hp = 100; e.armor = 100; e.helmet = true; e.kit = false;
+    e.crouch = false; e.firing = false; e.blindUntil = 0; e.recoilYaw = 0; e.recoilPitch = 0; e.burningUntil = 0;
+    e.money = 16000;
+    if (e.bot) {
+      const T = e.team === 'T';
+      const prim = T ? ['ak47', 'galil', 'mac10', 'awp', 'ak47', 'ump45'] : ['m4a4', 'famas', 'mp9', 'awp', 'm4a4', 'ump45'];
+      e.weapons = { 1: makeWeapon(prim[Math.floor(Math.random() * prim.length)]), 2: makeWeapon(T ? 'glock' : 'usp'), 3: makeWeapon('knife'), 4: [] };
+      if (Math.random() < 0.5) e.weapons[4].push(makeWeapon(Math.random() < 0.5 ? 'he' : 'flash'));
+      e.current = e.weapons[1];
+      e.bot.onRoundStart();
+    } else {
+      if (!e.weapons[3]) this.defaultLoadout(e);
+      for (const w of [e.weapons[1], e.weapons[2]]) if (w) { w.ammo = w.def.mag; w.reserve = w.def.reserve; w.reloadEnd = 0; }
+      if (!e.current || !this.ownsWeapon(e, e.current)) e.current = e.weapons[1] || e.weapons[2];
+      this.viewModel.setWeapon(e.current.def, e.team);
+      this.controller.specTarget = null;
+      this.hud.hideDeathPanel();
+    }
+    if (e.model) { e.model.visible = true; e.model.userData.deadT = 0; e.model.userData.tag.visible = true; }
   }
 
   defaultLoadout(e) {
@@ -140,6 +197,7 @@ export class Game {
       if (!e.current || !this.ownsWeapon(e, e.current)) e.current = e.weapons[2] || e.weapons[3];
       if (e.model) { e.model.visible = true; e.model.userData.deadT = 0; e.model.userData.tag.visible = true; }
       e.spottedUntil = 0;
+      e.roundKills = 0; e.roundDmgGiven = 0; e.roundHitsGiven = 0; e.roundDmgTaken = 0; e.roundHitsTaken = 0; e.roundMoneyStart = e.money; e.burningUntil = 0;
     }
     // bomb carrier
     const ts = this.entities.filter(e => e.team === 'T');
@@ -151,7 +209,12 @@ export class Game {
     this.controller.specTarget = null;
     this.controller.visRecoilYaw = this.controller.visRecoilPitch = 0;
     this.audio.play('round_start');
-    const half = this.round === MATCH.halfRounds + 1 ? ' — Second half' : '';
+    this.hud.hideDeathPanel(); this.hud.hideRoundEnd();
+    // round-start callouts
+    if (carrier && carrier.bot && Math.random() < 0.8) this.chat(carrier, `Let's go ${carrier.bot.site}`);
+    const ctTalker = this.entities.find(e => e.bot && e.team === 'CT');
+    if (ctTalker && Math.random() < 0.6) this.chat(ctTalker, `I'll hold ${ctTalker.bot.site}`);
+    const half = this.round === this.matchCfg.half + 1 ? ' — Second half' : '';
     this.hud.announce(`Round ${this.round}${half}`, 3, this.player.hasBomb ? 'You carry the bomb. Press B to buy.' : 'Press B to buy equipment');
     this.hud.setBuyAllowed(true);
     this.hud.roundStart();
@@ -179,7 +242,7 @@ export class Game {
       if (!e.alive) continue;
       const w = e.current;
       if (!w) continue;
-      if (e.bot && e.firing && (this.phase === 'live' || this.phase === 'planted')) {
+      if (e.bot && e.firing && this.isLive()) {
         if (w.def.auto || this.now - w.lastShot > 60 / (w.def.rpm || 300)) this.fireWeapon(e);
       }
       // reload completion
@@ -207,6 +270,8 @@ export class Game {
         }
       }
     }
+    if (this.phase === 'dm') for (const e of this.entities) if (!e.alive && this.now >= e.respawnAt) this.respawn(e);
+    for (const e of this.entities) if (e.alive && e.burningUntil > this.now && Math.random() < dt * 6) this.audio.play('burn', e.isPlayer ? null : e.pos, { maxDist: 20, volume: 0.5 });
     this.grenades.update(dt);
     this.updateBomb(dt);
     this.updatePickups();
@@ -241,6 +306,15 @@ export class Game {
         this.timer -= dt;
         if (this.timer <= 0) this.nextRound();
         break;
+      case 'dm': {
+        this.timer -= dt;
+        if (this.timer <= 0) {
+          const k = team => this.entities.filter(e => e.team === team).reduce((a, e) => a + e.kills, 0);
+          this.score = { T: k('T'), CT: k('CT') };
+          this.matchEnd(this.score.T === this.score.CT ? (this.player.team) : this.score.T > this.score.CT ? 'T' : 'CT');
+        }
+        break;
+      }
     }
   }
 
@@ -271,7 +345,14 @@ export class Game {
     this.lossStreak[winner] = Math.max(0, this.lossStreak[winner] - 1);
     this.roundLog.push({ round: this.round, winner, reason });
     const playerWon = this.player.team === winner;
-    this.hud.announce(playerWon ? 'ROUND WON' : 'ROUND LOST', 4.5, reason, playerWon ? 'win' : 'lose');
+    // MVP: planter/defuser on objective wins, else most kills on the winning team
+    let mvp = null, mvpWhy = '';
+    const winners = this.entities.filter(e => e.team === winner);
+    if (/bombed/.test(reason) && this.bomb.planter) { mvp = this.bomb.planter; mvpWhy = 'planting the bomb'; }
+    else if (/defused/.test(reason) && this.bomb.defusedBy) { mvp = this.bomb.defusedBy; mvpWhy = 'defusing the bomb'; }
+    else { winners.sort((a, b) => b.roundKills - a.roundKills || b.roundDmgGiven - a.roundDmgGiven); if (winners[0] && winners[0].roundKills > 0) { mvp = winners[0]; mvpWhy = `${mvp.roundKills} kill${mvp.roundKills > 1 ? 's' : ''}`; } }
+    if (mvp) mvp.mvp++;
+    this.hud.showRoundEnd({ won: playerWon, reason, mvp, mvpWhy, moneyDelta: this.player.money - this.player.roundMoneyStart, player: this.player });
     this.audio.play(playerWon ? 'win' : 'lose');
     this.hud.setBuyAllowed(false);
     if (this.bomb.planted) { this.bomb.planted = false; }
@@ -291,7 +372,7 @@ export class Game {
       for (const e of this.entities) e.money = 10000;
       this.hud.announce('OVERTIME', 3, `First to ${this.target}`);
     }
-    if (this.round === MATCH.halfRounds) this.swapSides();
+    if (this.round === this.matchCfg.half) this.swapSides();
     this.startRound();
   }
 
@@ -317,7 +398,7 @@ export class Game {
 
   // ---------------- buying
   canBuy(e) {
-    if (this.phase === 'freeze') return true;
+    if (this.phase === 'freeze' || this.phase === 'dm') return true;
     if (this.phase === 'live' && this.timer > ROUND.live - ROUND.buyTime) {
       const sp = this.map.spawns[e.team];
       for (const s of sp) if (Math.hypot(s.x - e.pos.x, s.z - e.pos.z) < 22) return true;
@@ -387,7 +468,7 @@ export class Game {
     let tries = 0;
     while (m() > 2200 && e.weapons[4].length < 3 && tries++ < 4) {
       const r = Math.random();
-      buy(r < 0.4 ? 'flash' : r < 0.75 ? 'he' : 'smoke');
+      buy(r < 0.3 ? 'flash' : r < 0.55 ? 'he' : r < 0.78 ? 'smoke' : (T ? 'molotov' : 'incendiary'));
     }
     if (!e.weapons[1] && e.weapons[2]) this.selectWeapon(e, e.weapons[2]);
   }
@@ -417,7 +498,7 @@ export class Game {
   }
   startReload(e, w) {
     if (!w || !w.def.mag) return;
-    if (w.reloadEnd > this.now || w.ammo >= w.def.mag || w.reserve <= 0) return;
+    if (w.reloadEnd > 0 || w.ammo >= w.def.mag || w.reserve <= 0) return;
     w.reloadStart = this.now; w.reloadEnd = this.now + w.def.reload;
     w.scoped = false;
     this.audio.play('reload', e.isPlayer ? null : e.pos, { volume: 0.6, maxDist: 20 });
@@ -452,7 +533,8 @@ export class Game {
     if (e.isPlayer) this.audio.play('pickup');
   }
   updatePickups() {
-    if (this.phase !== 'live' && this.phase !== 'planted' && this.phase !== 'freeze') return;
+    if (!this.isLive() && this.phase !== 'freeze') return;
+    while (this.pickups.length > 24) { const p = this.pickups.shift(); this.scene.remove(p.mesh); }
     for (const e of this.entities) {
       if (!e.alive) continue;
       for (let i = this.pickups.length - 1; i >= 0; i--) {
@@ -471,7 +553,7 @@ export class Game {
 
   // E key for the player: plant / defuse / swap weapon pickup
   playerUse(e, dt) {
-    if (this.phase !== 'live' && this.phase !== 'planted') return;
+    if (!this.isLive()) return;
     if (e.team === 'T' && e.hasBomb && !this.bomb.planted) {
       const cell = this.world.cellAt(e.pos.x, e.pos.z);
       if (cell && cell.zone && e.onGround) { this.plantTick(e, dt); return; }
@@ -503,11 +585,12 @@ export class Game {
     const b = this.bomb;
     b.planted = true; b.site = cell && cell.zone ? cell.zone : 'A';
     b.pos = { x: e.pos.x, y: e.pos.y, z: e.pos.z };
-    b.plantedAt = this.now; b.explodeAt = this.now + ROUND.bomb; b.carrier = null; b.beepNext = this.now;
+    b.plantedAt = this.now; b.explodeAt = this.now + ROUND.bomb; b.carrier = null; b.beepNext = this.now; b.planter = e;
     e.hasBomb = false; e.planting = false; e.money = Math.min(ECON.max, e.money + ECON.plant);
     this.bombMesh.position.set(b.pos.x, b.pos.y, b.pos.z); this.bombMesh.rotation.y = e.yaw; this.bombMesh.visible = true;
     this.phase = 'planted'; this.timer = ROUND.bomb;
     this.hud.announce('The bomb has been planted', 3, `Site ${b.site} — 40 seconds`);
+    if (e.bot) this.chat(e, `Bomb planted at ${b.site}`);
     this.hud.setBuyAllowed(false);
     for (const o of this.entities) if (o.bot) o.bot.onBombPlanted();
   }
@@ -524,8 +607,9 @@ export class Game {
     if (e.defuseProgress >= total) {
       e.defusing = false;
       this.audio.play('defused');
-      this.bomb.planted = false; this.bombMesh.visible = false;
+      this.bomb.planted = false; this.bombMesh.visible = false; this.bomb.defusedBy = e;
       e.money = Math.min(ECON.max, e.money + 300);
+      if (e.bot) this.chat(e, 'Bomb defused!');
       this.endRound('CT', 'Counter-Terrorists win — Bomb defused');
     }
   }
@@ -565,7 +649,7 @@ export class Game {
 
   throwGrenade(e, underhand = false) {
     const w = e.current; if (!w || w.def.cat !== 'grenade' || !e.alive) return false;
-    if (this.phase !== 'live' && this.phase !== 'planted') return false;
+    if (!this.isLive()) return false;
     const eye = this.eyeOf(e);
     const cp = Math.cos(e.pitch);
     let dx = -Math.sin(e.yaw) * cp, dy = Math.sin(e.pitch) + (underhand ? 0.12 : 0.06), dz = -Math.cos(e.yaw) * cp;
@@ -586,10 +670,10 @@ export class Game {
 
   fireWeapon(e, alt = false) {
     const w = e.current; if (!w || !e.alive) return false;
-    if (this.phase !== 'live' && this.phase !== 'planted') return false;
+    if (!this.isLive()) return false;
     const now = this.now, def = w.def;
     if (now < w.nextShot) return false;
-    if (w.reloadEnd > now) {
+    if (w.reloadEnd > 0) {
       if (def.reloadShell && w.ammo > 0) { w.reloadEnd = 0; } else return false;
     }
     if (def.cat === 'grenade') return false;
@@ -650,29 +734,56 @@ export class Game {
 
   hitscan(e, w, eye, dx, dy, dz, tracer) {
     const def = w.def;
-    const maxD = 300;
-    const wh = this.world.raycast(eye.x, eye.y, eye.z, dx, dy, dz, maxD);
-    let tBest = wh ? wh.t : maxD, victim = null, part = null;
-    for (const o of this.entities) {
-      if (!o.alive || o === e || o.team === e.team) continue;
-      const h = rayEntity(o, eye.x, eye.y, eye.z, dx, dy, dz, tBest);
-      if (h) { tBest = h.t; victim = o; part = h.part; }
-    }
-    const end = { x: eye.x + dx * tBest, y: eye.y + dy * tBest, z: eye.z + dz * tBest };
-    if (tracer && tBest > 2) {
-      let m;
-      if (e.isPlayer) m = { x: eye.x + dx * 1.2 + Math.cos(e.yaw) * 0.22, y: eye.y - 0.18 + dy * 1.2, z: eye.z + dz * 1.2 - Math.sin(e.yaw) * 0.22 };
-      else m = { x: e.pos.x - Math.sin(e.yaw) * 0.6, y: e.pos.y + (e.crouch ? 0.9 : 1.3), z: e.pos.z - Math.cos(e.yaw) * 0.6 };
-      this.effects.tracer(m, end);
-    }
-    if (victim) {
-      const dmg = damageAtRange(def, tBest);
-      this.applyDamage(victim, e, dmg, part, def, eye);
-      this.effects.blood(end.x, end.y, end.z, part === 'head' ? 7 : 4);
-    } else if (wh) {
+    let origin = { x: eye.x, y: eye.y, z: eye.z };
+    let travelled = 0, dmgMul = 1;
+    let power = penetrationPower(def);
+    const hitEntities = new Set();
+    for (let pass = 0; pass < 3; pass++) {
+      const maxD = 300 - travelled;
+      const wh = this.world.raycast(origin.x, origin.y, origin.z, dx, dy, dz, maxD);
+      let tBest = wh ? wh.t : maxD, victim = null, part = null;
+      for (const o of this.entities) {
+        if (!o.alive || o === e || o.team === e.team || hitEntities.has(o)) continue;
+        const h = rayEntity(o, origin.x, origin.y, origin.z, dx, dy, dz, tBest);
+        if (h) { tBest = h.t; victim = o; part = h.part; }
+      }
+      const end = { x: origin.x + dx * tBest, y: origin.y + dy * tBest, z: origin.z + dz * tBest };
+      if (pass === 0 && tracer && tBest > 2) {
+        let m;
+        if (e.isPlayer) m = { x: eye.x + dx * 1.2 + Math.cos(e.yaw) * 0.22, y: eye.y - 0.18 + dy * 1.2, z: eye.z + dz * 1.2 - Math.sin(e.yaw) * 0.22 };
+        else m = { x: e.pos.x - Math.sin(e.yaw) * 0.6, y: e.pos.y + (e.crouch ? 0.9 : 1.3), z: e.pos.z - Math.cos(e.yaw) * 0.6 };
+        this.effects.tracer(m, end);
+      }
+      if (victim) {
+        const dmg = damageAtRange(def, travelled + tBest) * dmgMul;
+        this.applyDamage(victim, e, dmg, part, def, eye, pass > 0);
+        this.effects.blood(end.x, end.y, end.z, part === 'head' ? 7 : 4);
+        hitEntities.add(victim);
+        // bullets keep going through bodies with reduced damage
+        travelled += tBest + 0.5; dmgMul *= 0.55;
+        origin = { x: end.x + dx * 0.5, y: end.y + dy * 0.5, z: end.z + dz * 0.5 };
+        if (dmgMul < 0.2) return;
+        continue;
+      }
+      if (!wh) return;
       this.effects.impact(wh, def.cat === 'sniper');
       if (Math.random() < 0.25) this.audio.play(Math.random() < 0.5 ? 'impact' : 'ricochet', wh, { maxDist: 30, volume: 0.5 });
       else this.audio.play('impact', wh, { maxDist: 30, volume: 0.4 });
+      // wall penetration: march through the obstacle and continue if it is thin enough
+      const isWall = this.world.cellTop(wh.cx, wh.cz) >= WALL_H;
+      if (power <= 0 || (isWall && power < 2)) return;
+      const maxThick = isWall ? 1.05 : 1.6;
+      let exit = null;
+      for (let d = 0.1; d <= maxThick; d += 0.1) {
+        const px = wh.x + dx * d, py = wh.y + dy * d, pz = wh.z + dz * d;
+        if (py >= this.world.topAt(px, pz)) { exit = { x: px, y: py, z: pz, d }; break; }
+      }
+      if (!exit) return;
+      dmgMul *= isWall ? 0.45 : 0.72;
+      power -= isWall ? 2 : 1;
+      travelled += wh.t + exit.d;
+      origin = { x: exit.x, y: exit.y, z: exit.z };
+      this.effects.impact({ x: exit.x, y: exit.y, z: exit.z, nx: dx, ny: dy, nz: dz }, false);
     }
   }
 
@@ -700,7 +811,7 @@ export class Game {
     }
   }
 
-  applyDamage(victim, attacker, dmg, part, def, srcPos) {
+  applyDamage(victim, attacker, dmg, part, def, srcPos, throughWall = false) {
     if (!victim.alive) return;
     if (attacker && attacker !== victim && attacker.team === victim.team) return; // no friendly fire
     let d = dmg;
@@ -715,14 +826,17 @@ export class Game {
       d = toHp; hitArmor = true;
     }
     d = Math.max(1, Math.round(d));
+    const dealt = Math.min(d, victim.hp);
     victim.hp -= d;
     victim.lastHitBy = attacker; victim.lastHitTime = this.now;
-    if (attacker && attacker !== victim) attacker.damage += Math.min(d, Math.max(0, victim.hp + d));
+    victim.roundDmgTaken += dealt; victim.roundHitsTaken++;
+    if (attacker && attacker !== victim) { attacker.damage += dealt; attacker.roundDmgGiven += dealt; attacker.roundHitsGiven++; }
     if (victim.isPlayer) {
       const ang = srcPos ? Math.atan2(srcPos.x - victim.pos.x, -(srcPos.z - victim.pos.z)) : null;
       this.hud.damageFrom(ang, victim.yaw, d);
       this.audio.play('hurt', null, { volume: 0.7 });
       this.shake(Math.min(1, d / 40));
+      if (def.cat !== 'fire') this.controller.punch(d * (victim.armor > 0 ? 0.05 : 0.12));
     }
     if (attacker && attacker.isPlayer && victim !== attacker) {
       this.hud.hitmarker(part === 'head');
@@ -738,17 +852,24 @@ export class Game {
     victim.vel.x = 0; victim.vel.z = 0;
     this.audio.play('death', victim.isPlayer ? null : victim.pos, { maxDist: 30 });
     if (attacker && attacker !== victim && attacker.team !== victim.team) {
-      attacker.kills++;
+      attacker.kills++; attacker.roundKills++;
       attacker.money = Math.min(ECON.max, attacker.money + (def.kill ?? 300));
+      if (attacker.bot && Math.random() < 0.25) this.chat(attacker, hs ? 'Headshot! Enemy down' : 'Enemy down');
     } else if (attacker === victim) victim.money = Math.max(0, victim.money - 300);
     this.hud.killfeed(attacker, victim, def, hs);
+    if (this.phase === 'dm') victim.respawnAt = this.now + 3;
+    // a teammate reports the death
+    if (Math.random() < 0.35) {
+      const mates = this.entities.filter(o => o.bot && o.alive && o.team === victim.team && o !== victim);
+      if (mates.length) this.chat(mates[Math.floor(Math.random() * mates.length)], `${victim.isPlayer ? 'Player' : victim.name} is down at ${this.map.regionName(victim.pos.x, victim.pos.z)}`);
+    }
     if (victim.hasBomb) {
       victim.hasBomb = false; this.bomb.carrier = null;
       this.bomb.dropped = { x: victim.pos.x, y: this.world.floorAt(victim.pos.x, victim.pos.z), z: victim.pos.z };
       if (victim.isPlayer || this.player.team === 'T') this.hud.announce('The bomb has been dropped', 2);
     }
     if (victim.weapons[1]) this.dropToGround(victim, victim.weapons[1]);
-    if (victim.isPlayer) { this.controller.onDeath(); this.hud.onPlayerDeath(attacker, def, hs); }
+    if (victim.isPlayer) { this.controller.onDeath(); this.hud.onPlayerDeath(attacker, def, hs, throughWallKill(def)); this.hud.showDeathPanel(victim, attacker, def, hs); }
     if (victim.model) victim.model.userData.deadT = 0;
     if (victim.bot) { victim.bot.target = null; }
     // notify teammate bots of the death location (for rotations)
@@ -777,6 +898,41 @@ export class Game {
         if (isShot) o.bot.onHearShot(src);
         else if (!o.bot.target && Math.random() < 0.3) { o.bot.lastKnown = { x: src.pos.x, z: src.pos.z }; o.bot.lookAt(src.pos.x, src.pos.y + 1.2, src.pos.z); }
       }
+    }
+  }
+
+  // Team chat / radio
+  chat(e, text) {
+    if (!e || !text) return;
+    if (e.bot && this.now - e.lastCallout < 4) return;
+    e.lastCallout = this.now;
+    this.hud.chat(e, text);
+    if (e.team === this.player.team) this.audio.play('radio', null, { volume: 0.35 });
+  }
+
+  // Player radio commands: steer teammate bots.
+  radio(cmd) {
+    const p = this.player;
+    if (!this.isLive() && this.phase !== 'freeze') return;
+    const mates = this.entities.filter(o => o.bot && o.alive && o.team === p.team);
+    if (cmd === 'A' || cmd === 'B') {
+      this.chat(p, p.team === 'T' ? `Everyone go ${cmd}!` : `Rotate to ${cmd}!`);
+      if (p.team === 'T') this.tPlan.site = cmd;
+      for (const m of mates) {
+        const b = m.bot;
+        if (b.state === 'plant' || b.state === 'defuse' || (b.target && b.target.alive)) continue;
+        b.site = cmd; b.arrived = false; b.investigateUntil = 0; b.investigating = false; b.lateMove = true;
+        b.planObjective();
+        if (Math.random() < 0.5) setTimeout(() => this.chat(m, Math.random() < 0.5 ? 'Roger that' : `Moving to ${cmd}`), 300 + Math.random() * 1200);
+      }
+    } else if (cmd === 'hold') {
+      this.chat(p, 'Hold your positions');
+      for (const m of mates) { const b = m.bot; if (b.state === 'plant' || b.state === 'defuse') continue; b.path = null; b.arrived = true; b.lateMove = true; b.holdAt(m.pos.x, m.pos.z); }
+    } else if (cmd === 'follow') {
+      this.chat(p, 'Follow me');
+      for (const m of mates) { const b = m.bot; if (b.state === 'plant' || b.state === 'defuse') continue; b.lateMove = true; b.state = 'rush'; b.setGoal(p.pos.x, p.pos.z); b.arrivedAction = () => b.holdAt(m.pos.x, m.pos.z); }
+    } else if (cmd === 'report') {
+      for (const m of mates) if (Math.random() < 0.7) setTimeout(() => this.chat(m, m.bot.target ? `Contact at ${this.map.regionName(m.pos.x, m.pos.z)}` : `${this.map.regionName(m.pos.x, m.pos.z)} is clear`), 200 + Math.random() * 1500);
     }
   }
 

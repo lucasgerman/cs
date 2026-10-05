@@ -239,6 +239,28 @@ export function buildWorld(scene, map) {
     group.add(m);
   }
 
+  // Roofs over tunnels (visual only: nothing in the game goes above the walls)
+  if (map.roofs && map.roofs.length) {
+    const roofGeoms = [];
+    for (const r of map.roofs) {
+      const w = r.x1 - r.x0 + 1, d = r.z1 - r.z0 + 1;
+      roofGeoms.push(translated(scaledBox(w, 0.4, d, 2), r.x0 + w / 2, 3.8, r.z0 + d / 2));
+      // support beams
+      for (let z = r.z0 + 2; z < r.z1; z += 4) roofGeoms.push(translated(scaledBox(w, 0.25, 0.3, 1), r.x0 + w / 2, 3.45, z + 0.5));
+    }
+    const m = new THREE.Mesh(mergeGeoms(roofGeoms), new THREE.MeshStandardMaterial({ map: tex.concrete, roughness: 0.95, color: 0x8f8678 }));
+    m.castShadow = true; m.receiveShadow = true;
+    group.add(m);
+    // warm lamps inside the tunnels
+    const lampMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
+    for (const [x, z] of map.lamps || []) {
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), lampMat);
+      bulb.position.set(x + 0.5, 3.35, z + 0.5); group.add(bulb);
+      const l = new THREE.PointLight(0xffc98a, 14, 14, 1.6);
+      l.position.set(x + 0.5, 3.2, z + 0.5); group.add(l);
+    }
+  }
+
   // Decorative: a few lamp posts / barrels at spawns for orientation
   const barrelGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.1, 12);
   const barrelMat = new THREE.MeshStandardMaterial({ color: 0x3a5a3a, roughness: 0.7, metalness: 0.4 });
@@ -256,8 +278,21 @@ export function buildWorld(scene, map) {
 }
 
 export function setupLighting(scene) {
-  scene.background = new THREE.Color(0x9ec4e6);
-  scene.fog = new THREE.Fog(0xc9d6e2, 70, 260);
+  scene.fog = new THREE.Fog(0xcfdbe6, 70, 260);
+  // gradient sky dome + sun
+  const skyMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false,
+    uniforms: { top: { value: new THREE.Color(0x3f7fcf) }, horizon: { value: new THREE.Color(0xd3e1ec) }, sunDir: { value: new THREE.Vector3(0.4, 0.7, 0.6).normalize() } },
+    vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 sunDir; varying vec3 vDir;
+      void main(){ float h = max(vDir.y, 0.0); float k = pow(h, 0.5); vec3 c = mix(horizon, top, k);
+      float s = max(dot(normalize(vDir), sunDir), 0.0); c += vec3(1.0, 0.95, 0.8) * (pow(s, 600.0) * 1.2 + pow(s, 12.0) * 0.18);
+      gl_FragColor = vec4(c, 1.0); }`,
+  });
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(330, 32, 16), skyMat);
+  sky.position.set(60, 0, 70);
+  scene.add(sky);
+  scene.background = new THREE.Color(0xd3e1ec);
   const hemi = new THREE.HemisphereLight(0xd8ecff, 0x8a7652, 0.95);
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff1d8, 2.0);

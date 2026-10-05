@@ -8,15 +8,20 @@ export class GrenadeManager {
     this.game = game;
     this.list = [];
     this.smokes = [];       // active smoke volumes for LOS {x,y,z,r,end}
+    this.fires = [];        // burning areas {x,y,z,r,end,owner,group}
     this.geo = {
       he: new THREE.SphereGeometry(0.07, 10, 8),
       flash: new THREE.CylinderGeometry(0.045, 0.045, 0.14, 10),
       smoke: new THREE.CylinderGeometry(0.05, 0.05, 0.15, 10),
+      molotov: new THREE.CylinderGeometry(0.04, 0.05, 0.2, 10),
+      incendiary: new THREE.CylinderGeometry(0.05, 0.05, 0.16, 10),
     };
     this.mat = {
       he: new THREE.MeshLambertMaterial({ color: 0x3f5d3a }),
       flash: new THREE.MeshLambertMaterial({ color: 0x8a8d90 }),
       smoke: new THREE.MeshLambertMaterial({ color: 0x4a6a44 }),
+      molotov: new THREE.MeshLambertMaterial({ color: 0x6a9a5a, transparent: true, opacity: 0.85 }),
+      incendiary: new THREE.MeshLambertMaterial({ color: 0x9a2a2a }),
     };
   }
 
@@ -52,7 +57,7 @@ export class GrenadeManager {
       const ground = w.maxTopInBox(p.x - r, p.z - r, p.x + r, p.z + r);
       p.y += v.y * dt;
       if (p.y <= ground) {
-        p.y = ground;
+        p.y = ground; g.touchedGround = true;
         if (v.y < -1.5) { v.y *= -0.35; v.x *= 0.7; v.z *= 0.7; this._bounce(g); }
         else { v.y = 0; v.x *= Math.exp(-dt * 4); v.z *= Math.exp(-dt * 4); }
       }
@@ -65,6 +70,7 @@ export class GrenadeManager {
       if (g.type === 'he' && age > 1.7) detonate = true;
       if (g.type === 'flash' && age > 1.6) detonate = true;
       if (g.type === 'smoke' && (age > 3.5 || (age > 1.0 && g.restT > 0.4))) detonate = true;
+      if ((g.type === 'molotov' || g.type === 'incendiary') && (g.touchedGround || age > 2.2)) detonate = true;
       if (detonate) {
         this.detonate(g);
         this.game.scene.remove(g.mesh);
@@ -72,6 +78,34 @@ export class GrenadeManager {
       }
     }
     for (let i = this.smokes.length - 1; i >= 0; i--) if (this.smokes[i].end < now) this.smokes.splice(i, 1);
+    // burning areas damage whoever stands in them
+    for (let i = this.fires.length - 1; i >= 0; i--) {
+      const f = this.fires[i];
+      if (f.end < now) { this.fires.splice(i, 1); continue; }
+      f.tick = (f.tick || 0) - dt;
+      if (f.tick > 0) continue;
+      f.tick = 0.2;
+      for (const e of this.game.entities) {
+        if (!e.alive) continue;
+        const d = Math.hypot(e.pos.x - f.x, e.pos.z - f.z);
+        if (d > f.r || Math.abs(e.pos.y - f.y) > 1.2) continue;
+        this.game.applyDamage(e, f.owner, 8, 'legs', { id: f.type, name: f.type === 'molotov' ? 'Molotov' : 'Incendiary', cat: 'fire', pen: 1, kill: 300, hsMul: 1 }, { x: f.x, y: f.y, z: f.z });
+        e.burningUntil = now + 0.5;
+        if (e.bot) e.bot.onBurning(f);
+      }
+    }
+  }
+
+  inFire(x, z) {
+    for (const f of this.fires) if (Math.hypot(x - f.x, z - f.z) < f.r + 0.6) return f;
+    return null;
+  }
+
+  extinguish(x, z, r) {
+    for (let i = this.fires.length - 1; i >= 0; i--) {
+      const f = this.fires[i];
+      if (Math.hypot(x - f.x, z - f.z) < r + f.r * 0.5) { f.end = 0; if (f.group) this.game.effects.remove(f.group); this.fires.splice(i, 1); }
+    }
   }
 
   _bounce(g) {
@@ -116,11 +150,22 @@ export class GrenadeManager {
       const dur = 18;
       game.effects.smoke(p.x, p.y, p.z, 3.4, dur);
       this.smokes.push({ x: p.x, y: p.y + 1.3, z: p.z, r: 3.2, end: game.now + dur - 1.5 });
+      this.extinguish(p.x, p.z, 3.4);
+    } else if (g.type === 'molotov' || g.type === 'incendiary') {
+      // smoke prevents the fire from spreading
+      for (const s of this.smokes) if (Math.hypot(p.x - s.x, p.z - s.z) < s.r + 1) { game.audio.play('smoke_pop', p, { maxDist: 40, volume: 0.4 }); return; }
+      game.audio.play('fire_start', p, { maxDist: 90 });
+      const dur = 7;
+      const ground = game.world.floorAt(p.x, p.z);
+      const group = game.effects.fire(p.x, ground, p.z, 3.4, dur);
+      this.fires.push({ x: p.x, y: ground, z: p.z, r: 3.4, end: game.now + dur, owner: g.owner, type: g.type, group });
     }
   }
 
   clear() {
     for (const g of this.list) this.game.scene.remove(g.mesh);
     this.list.length = 0; this.smokes.length = 0;
+    for (const f of this.fires) if (f.group) this.game.effects.remove(f.group);
+    this.fires.length = 0;
   }
 }

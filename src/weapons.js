@@ -39,7 +39,20 @@ export const WEAPONS = {
   he: { id: 'he', name: 'HE Grenade', slot: 4, cat: 'grenade', price: 300, kill: 300, teams: 'both', max: 1, speed: 245 },
   flash: { id: 'flash', name: 'Flashbang', slot: 4, cat: 'grenade', price: 200, teams: 'both', max: 2, speed: 245 },
   smoke: { id: 'smoke', name: 'Smoke Grenade', slot: 4, cat: 'grenade', price: 300, teams: 'both', max: 1, speed: 245 },
+  molotov: { id: 'molotov', name: 'Molotov', slot: 4, cat: 'grenade', price: 400, kill: 300, teams: 'T', max: 1, speed: 245 },
+  incendiary: { id: 'incendiary', name: 'Incendiary', slot: 4, cat: 'grenade', price: 600, kill: 300, teams: 'CT', max: 1, speed: 245 },
 };
+
+// How many surfaces a bullet can punch through: 0 none, 1 crates/sandbags, 2 thin walls too.
+export function penetrationPower(def) {
+  switch (def.cat) {
+    case 'sniper': return 2;
+    case 'rifle': return 2;
+    case 'pistol': return def.id === 'deagle' ? 2 : 1;
+    case 'smg': return 1;
+    default: return 0;
+  }
+}
 
 export const GEAR = {
   kevlar: { id: 'kevlar', name: 'Kevlar Vest', price: 650 },
@@ -51,7 +64,7 @@ export const BUY_MENU = [
   { title: 'Pistols', items: ['glock', 'usp', 'p250', 'fiveseven', 'tec9', 'deagle'] },
   { title: 'SMGs & Heavy', items: ['mac10', 'mp9', 'ump45', 'nova'] },
   { title: 'Rifles', items: ['galil', 'famas', 'ak47', 'm4a4', 'awp'] },
-  { title: 'Grenades', items: ['he', 'flash', 'smoke'] },
+  { title: 'Grenades', items: ['he', 'flash', 'smoke', 'molotov', 'incendiary'] },
   { title: 'Gear', items: ['kevlar', 'helmet', 'kit'] },
 ];
 

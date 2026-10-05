@@ -170,6 +170,14 @@ export class AudioManager {
       case 'flash_ring':
         this._tone('sine', 3200, opts.duration || 2.5, env(0.01, (opts.duration || 2.5) - 0.02, 0.35), out, t, 2800);
         break;
+      case 'fire_start':
+        this._noise(1.6, 'bandpass', 900, 0.5, env(0.02, 1.5, 0.9), out, t);
+        this._noise(0.3, 'highpass', 2500, 0.8, env(0.005, 0.25, 0.7), out, t);
+        this._tone('sine', 140, 0.4, env(0.01, 0.35, 0.5), out, t, 60);
+        break;
+      case 'burn':
+        this._noise(0.25, 'bandpass', 1200, 0.6, env(0.01, 0.22, 0.35), out, t);
+        break;
       case 'smoke_pop':
         this._noise(1.2, 'lowpass', 1200, 0.8, env(0.02, 1.1, 0.6), out, t);
         break;
@@ -195,6 +203,10 @@ export class AudioManager {
         break;
       case 'lose':
         [440, 415, 392, 349].forEach((f, i) => this._tone('sawtooth', f, 0.5, env(0.01, 0.45, 0.25), out, t + i * 0.16));
+        break;
+      case 'radio':
+        this._noise(0.05, 'bandpass', 2200, 3, env(0.002, 0.04, 0.5), out, t);
+        this._tone('square', 1800, 0.04, env(0.002, 0.035, 0.2), out, t + 0.06);
         break;
       case 'buy':
         this._tone('sine', 1000, 0.08, env(0.002, 0.07, 0.4), out, t);

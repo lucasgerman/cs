@@ -34,6 +34,12 @@
     <div id="death-panel" class="hidden">Spectating — click to switch target</div>
 
     <div id="killfeed"></div>
+    <div id="chat"></div>
+    <div id="round-end" class="hidden"></div>
+    <div id="death-info" class="hidden"></div>
+    <div id="burn-overlay"></div>
+    <div id="fullmap" class="hidden"><canvas id="fullmap-canvas" width="720" height="820"></canvas><div class="fullmap-hint">M to close</div></div>
+    <div id="money-pop"></div>
     <div id="radar"><canvas id="radar-canvas" width="230" height="230"></canvas></div>
 
     <div id="bottomleft">
@@ -62,6 +68,14 @@
         <div class="opt">
           <label>Your name</label>
           <input id="opt-name" type="text" maxlength="14" value="Player">
+        </div>
+        <div class="opt">
+          <label>Game mode</label>
+          <div class="seg">
+            <label><input type="radio" name="mode" value="competitive" checked><span>Competitive MR12</span></label>
+            <label><input type="radio" name="mode" value="short"><span>Short MR8</span></label>
+            <label><input type="radio" name="mode" value="deathmatch"><span>Deathmatch</span></label>
+          </div>
         </div>
         <div class="opt">
           <label>Team</label>
@@ -96,11 +110,12 @@
           <input id="opt-fov" type="range" min="60" max="100" step="1" value="74">
         </div>
       </div>
-      <button id="btn-play">PLAY — Dust II (Bomb Defusal)</button>
+      <button id="btn-play">PLAY — Dust II</button>
       <div class="controls">
         <div><b>WASD</b> move · <b>Shift</b> walk · <b>Ctrl</b> crouch · <b>Space</b> jump</div>
         <div><b>Mouse</b> aim/fire · <b>RMB</b> scope / underhand throw · <b>R</b> reload · <b>Wheel/1-5/Q</b> weapons</div>
-        <div><b>B</b> buy menu · <b>E</b> plant / defuse / pick up · <b>G</b> drop · <b>Tab</b> scoreboard · <b>Esc</b> pause</div>
+        <div><b>B</b> buy menu · <b>E</b> plant / defuse / pick up · <b>G</b> drop · <b>Tab</b> scoreboard · <b>M</b> map · <b>Esc</b> pause</div>
+        <div><b>Z</b> go A · <b>X</b> go B · <b>V</b> hold · <b>T</b> follow me · <b>Y</b> report in (radio commands to bots)</div>
         <div class="mode">Competitive · MR12 (first to 13) · 5v5 vs bots · buy time 20s · bomb 40s</div>
       </div>
     </div>

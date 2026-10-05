@@ -82,6 +82,11 @@ export function buildMapData() {
   floor(86, 24, 88, 32, 1);
   crate(82, 40, 83, 41, 1);
 
+  // extra cover in open areas
+  crate(52, 112, 53, 113, 1); crate(78, 104, 79, 105, 2); crate(56, 6, 57, 7, 1); crate(60, 88, 61, 89, 1);
+  crate(114, 44, 115, 45, 1); crate(108, 14, 109, 15, 1); halfwall(46, 118, 46, 121); crate(36, 104, 36, 105, 1);
+  crate(64, 36, 65, 37, 1); halfwall(88, 20, 88, 21);
+
   // finalize
   for (const c of cells) {
     c.top = c.wall ? WALL_H : c.h + c.obstH;
@@ -108,5 +113,37 @@ export function buildMapData() {
     TUNNELS: { holds: [{ x: 24, z: 56 }, { x: 40, z: 73 }] },
   };
 
-  return { W, H, cells, at, spawns, sites, landmarks, name: 'Dust II (browser edition)' };
+  // Roofed corridors (visual only) and lamps inside them
+  const roofs = [
+    { x0: 20, z0: 36, x1: 28, z1: 96 },     // B tunnels
+    { x0: 12, z0: 100, x1: 44, z1: 110 },   // upper tunnels
+    { x0: 28, z0: 70, x1: 54, z1: 76 },     // lower tunnels
+    { x0: 92, z0: 104, x1: 102, z1: 110 },  // long doors
+    { x0: 34, z0: 14, x1: 40, z1: 22 },     // B doors
+  ];
+  const lamps = [[24, 45], [24, 65], [24, 85], [20, 105], [36, 105], [40, 73], [97, 107], [37, 18]];
+
+  // Named regions for callouts (first match wins)
+  const regions = [
+    { name: 'A site', x0: 88, z0: 4, x1: 116, z1: 34 },
+    { name: 'B site', x0: 4, z0: 4, x1: 34, z1: 34 },
+    { name: 'CT spawn', x0: 46, z0: 4, x1: 76, z1: 22 },
+    { name: 'B doors', x0: 34, z0: 14, x1: 46, z1: 22 },
+    { name: 'CT ramp', x0: 76, z0: 8, x1: 88, z1: 18 },
+    { name: 'Catwalk', x0: 80, z0: 24, x1: 88, z1: 49 },
+    { name: 'Short', x0: 70, z0: 50, x1: 86, z1: 56 },
+    { name: 'Mid', x0: 54, z0: 22, x1: 70, z1: 100 },
+    { name: 'Lower tunnels', x0: 28, z0: 70, x1: 54, z1: 76 },
+    { name: 'B tunnels', x0: 20, z0: 34, x1: 28, z1: 96 },
+    { name: 'Upper tunnels', x0: 12, z0: 96, x1: 44, z1: 110 },
+    { name: 'Long doors', x0: 92, z0: 104, x1: 102, z1: 110 },
+    { name: 'Long A', x0: 102, z0: 35, x1: 116, z1: 112 },
+    { name: 'T spawn', x0: 44, z0: 100, x1: 92, z1: 130 },
+  ];
+  const regionName = (x, z) => {
+    for (const r of regions) if (x >= r.x0 && x <= r.x1 + 1 && z >= r.z0 && z <= r.z1 + 1) return r.name;
+    return 'unknown';
+  };
+
+  return { W, H, cells, at, spawns, sites, landmarks, roofs, lamps, regions, regionName, name: 'Dust II (browser edition)' };
 }

@@ -138,3 +138,30 @@ button.secondary { background: rgba(255,255,255,0.1); color: #ddd; font-weight: 
 .me-card table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .me-card td { padding: 4px 8px; border-top: 1px solid rgba(255,255,255,0.08); text-align: left; }
 .me-card tr.me td { background: rgba(255,255,255,0.08); }
+
+/* chat */
+#chat { position: absolute; left: 16px; bottom: 150px; display: flex; flex-direction: column; gap: 3px; max-width: 420px; }
+.chat-row { background: rgba(10,14,20,0.6); padding: 3px 10px; border-radius: 3px; font-size: 13px; transition: opacity 1s; }
+.chat-row.fade { opacity: 0; } .chat-sep { opacity: 0.6; margin: 0 6px; } .chat-text { color: #eee; }
+/* round end panel */
+#round-end { position: absolute; top: 36%; left: 50%; transform: translateX(-50%); width: 420px; background: rgba(8,11,16,0.9); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 14px 18px; text-align: center; }
+.re-title { font-size: 26px; font-weight: 800; letter-spacing: 3px; } .re-title.win { color: #7dff9a; } .re-title.lose { color: #ff6b6b; }
+.re-reason { opacity: 0.8; font-size: 13px; margin-bottom: 10px; }
+.re-row { display: flex; justify-content: space-between; font-size: 14px; padding: 5px 0; border-top: 1px solid rgba(255,255,255,0.08); }
+.re-label { opacity: 0.6; text-transform: uppercase; font-size: 11px; letter-spacing: 1px; }
+.money-plus { color: #8fe28f; font-weight: 700; } .money-minus { color: #ff8a8a; font-weight: 700; }
+/* death panel */
+#death-info { position: absolute; top: 60%; left: 50%; transform: translateX(-50%); width: 460px; background: rgba(8,11,16,0.85); border: 1px solid rgba(255,80,80,0.4); border-radius: 6px; padding: 12px 18px; text-align: center; }
+.di-title { font-size: 18px; font-weight: 700; } .di-sub { opacity: 0.75; font-size: 13px; margin: 4px 0 8px; }
+.di-stats { display: flex; justify-content: space-around; font-size: 13px; opacity: 0.9; }
+/* burn */
+#burn-overlay { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(255,120,0,0) 40%, rgba(255,90,0,0.8) 100%); transition: opacity 0.2s; }
+/* full map */
+#fullmap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); }
+#fullmap canvas { height: 92vh; width: auto; background: rgba(5,8,12,0.9); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; }
+.fullmap-hint { position: absolute; bottom: 16px; font-size: 12px; opacity: 0.7; }
+/* money popups */
+#money-pop { position: absolute; left: 130px; bottom: 80px; }
+.money-pop-item { position: absolute; left: 0; white-space: nowrap; font-size: 18px; animation: moneyfloat 1.8s forwards; }
+@keyframes moneyfloat { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-50px); opacity: 0; } }
+#ammo-mag.low { color: #ff6b6b; }

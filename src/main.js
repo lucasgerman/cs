@@ -6,11 +6,12 @@ import { Input } from './input.js';
 import { AudioManager } from './audio.js';
 import { ViewModel } from './viewmodel.js';
 import { PlayerController } from './player.js';
+import { DIFFICULTY } from './config.js';
 
 const $ = id => document.getElementById(id);
 
 const settings = {
-  team: 'T', difficulty: 'normal', botsPerTeam: 5, sensitivity: 2.0, volume: 0.7, fov: 74, playerName: 'Player',
+  team: 'T', difficulty: 'normal', botsPerTeam: 5, sensitivity: 2.0, volume: 0.7, fov: 74, playerName: 'Player', mode: 'competitive',
 };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('cs2web-settings') || '{}')); } catch (e) { /* ignore */ }
 const saveSettings = () => { try { localStorage.setItem('cs2web-settings', JSON.stringify(settings)); } catch (e) { /* ignore */ } };
@@ -36,6 +37,7 @@ const input = new Input();
 const game = new Game({ scene, camera, audio, hud, viewModel, settings });
 hud.attach(game);
 const controller = new PlayerController(game, input);
+window.__DIFF = DIFFICULTY;
 window.__cs = { game, input, controller, hud, settings, camera, renderer, setUI: v => { ui = v; }, getUI: () => ui };
 
 // Initial camera: overview of the map for the menu background
@@ -53,6 +55,7 @@ const menu = $('menu'), pause = $('pause');
 
 function applyMenuSettings() {
   settings.team = document.querySelector('input[name=team]:checked').value;
+  settings.mode = document.querySelector('input[name=mode]:checked').value;
   settings.difficulty = document.querySelector('input[name=difficulty]:checked').value;
   settings.botsPerTeam = parseInt($('opt-bots').value, 10);
   settings.sensitivity = parseFloat($('opt-sens').value);
@@ -63,6 +66,7 @@ function applyMenuSettings() {
 }
 function fillMenu() {
   document.querySelector(`input[name=team][value=${settings.team}]`).checked = true;
+  (document.querySelector(`input[name=mode][value=${settings.mode}]`) || document.querySelector('input[name=mode]')).checked = true;
   document.querySelector(`input[name=difficulty][value=${settings.difficulty}]`).checked = true;
   $('opt-bots').value = settings.botsPerTeam;
   $('opt-sens').value = settings.sensitivity; $('opt-sens-v').textContent = settings.sensitivity.toFixed(2);
@@ -102,7 +106,7 @@ function backToMenu() {
   game.phase = 'menu';
   pause.classList.add('hidden'); $('hud').classList.add('hidden'); $('matchend').classList.add('hidden');
   menu.classList.remove('hidden');
-  hud.closeBuy(); hud.showScoreboard(false);
+  hud.closeBuy(); hud.showScoreboard(false); hud.toggleFullmap(false); hud.hideRoundEnd(); hud.hideDeathPanel();
   if (document.pointerLockElement === canvas) document.exitPointerLock();
   camera.position.set(60, 60, 150); camera.lookAt(60, 0, 70); camera.fov = settings.fov; camera.updateProjectionMatrix();
 }
@@ -127,7 +131,7 @@ input.onKey = (code, e) => {
   if (ui !== 'play') return;
   if (code === 'KeyB') hud.toggleBuy();
   if (code === 'Tab') hud.showScoreboard(true);
-  if (code === 'KeyM') { hud.hint('Map: ' + game.map.name, 2); }
+  if (code === 'KeyM') hud.toggleFullmap();
 };
 window.addEventListener('keyup', e => { if (e.code === 'Tab') hud.showScoreboard(false); });
 
