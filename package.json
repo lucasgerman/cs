@@ -1,0 +1,10 @@
+{
+  "name": "cs2-browser",
+  "version": "1.0.0",
+  "description": "Counter-Strike 2 style bomb-defusal shooter running in the browser (Three.js, no build step).",
+  "private": true,
+  "scripts": {
+    "start": "python3 -m http.server 8000"
+  },
+  "license": "MIT"
+}
